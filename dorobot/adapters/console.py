@@ -3,6 +3,7 @@ from loguru import logger
 
 from dorobot.bot import Bot
 from dorobot.adapter import Adapter
+from dorobot.bot_manager import bot_manager
 
 
 class ConsoleAdapter(Adapter):
@@ -14,7 +15,6 @@ class ConsoleAdapter(Adapter):
     async def start(self):
         bot = ConsoleBot()
         self._bot = bot
-        from dorobot.bot_manager import bot_manager
         bot_manager.add_bot(bot)
         asyncio.create_task(bot.start())
 

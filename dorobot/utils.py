@@ -77,27 +77,9 @@ def load_plugins(plugins_dir: str | Path | None = None, package: str = "plugins"
     return loaded
 
 
-def register_bot(bot):
-    """注册 Bot 实例到系统
-
-    Args:
-        bot: Bot 实例
-    """
-    from .bot_manager import bot_manager
-
-    bot_id = bot.self_id
-    if not bot_id:
-        bot_id = f"{bot.__class__.__name__.lower()}_{id(bot)}"
-
-    bot_manager.add_bot(bot)
-    logger.info(f"Registered bot: {bot_id}")
-
-
 def run():
     """启动 DoroBot，阻塞直到收到 KeyboardInterrupt"""
-    from .router import router
     from .adapter_manager import adapter_manager
-    from .bot_manager import bot_manager
 
     async def _run():
         logger.info("=" * 50)
