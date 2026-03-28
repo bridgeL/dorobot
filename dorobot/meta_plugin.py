@@ -16,8 +16,8 @@ class MetaPlugin(Plugin):
     如果不匹配任何插件，则让消息继续传递到后续层级。
     """
 
-    def __init__(self, name: str = "meta", layer: int = 0):
-        super().__init__(name, layer)
+    def __init__(self, name: str = "meta", layer: int = 0, description: str = ""):
+        super().__init__(name, layer, description)
         self._excluded_commands = {"/session"}
 
     async def handle_message(self, message: Message) -> bool:

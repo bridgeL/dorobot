@@ -25,15 +25,17 @@ class Plugin(ABC):
     哪个 session 激活了该插件，handle_message 就接收哪个 session。
     """
 
-    def __init__(self, name: str, layer: int = 2):
+    def __init__(self, name: str, layer: int = 2, description: str = ""):
         """初始化插件
 
         Args:
             name: 插件名称，唯一标识
             layer: 碰撞层，默认2层（应用层，独占）
+            description: 插件描述
         """
         self.name = name
         self.layer = layer
+        self.description = description
 
     @abstractmethod
     async def handle_message(self, message: Message) -> bool:
