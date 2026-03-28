@@ -4,6 +4,7 @@ from typing import Optional
 import asyncio
 from loguru import logger
 
+import dorobot.context as ctx
 from dorobot.plugin import Plugin, Message
 from dorobot.layer import (
     Layer,
@@ -12,6 +13,7 @@ from dorobot.layer import (
     PluginDeactivationError,
 )
 from dorobot.plugin_manager import plugin_manager
+from dorobot.bot_manager import bot_manager
 
 
 class Session:
@@ -136,6 +138,15 @@ class Session:
             for name in active_plugin_names:
                 plugin = plugin_manager.get_plugin(name)
                 if plugin:
+                    # 检查插件是否允许当前 Bot 类型
+                    if plugin.bots is not None:
+                        current_bot_id = ctx.get_bot_id()
+                        current_bot = bot_manager.get_bot(current_bot_id) if current_bot_id else None
+                        if current_bot:
+                            # 检查当前 Bot 实例是否属于插件允许的类型
+                            if not any(isinstance(current_bot, bot_type) for bot_type in plugin.bots):
+                                logger.debug(f"[Session] Plugin({name}) skipped for bot type {type(current_bot).__name__}")
+                                continue
                     active_plugins.append(plugin)
                 else:
                     logger.warning(

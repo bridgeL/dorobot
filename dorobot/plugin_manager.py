@@ -36,14 +36,6 @@ class PluginManager:
         logger.info(f"Registered plugin: {name} (layer={plugin_instance.layer}) - {plugin_instance.description}")
         return True
 
-    def unregister(self, name: str) -> bool:
-        """注销插件"""
-        if name not in self._plugin_instances:
-            return False
-        del self._plugin_instances[name]
-        logger.info(f"Unregistered plugin: {name}")
-        return True
-
     def get_plugin(self, name: str) -> Optional[Plugin]:
         """获取插件实例（单例）
 
@@ -59,7 +51,7 @@ class PluginManager:
         """获取插件元数据"""
         plugin = self._plugin_instances.get(name)
         if plugin:
-            return {"layer": plugin.layer, "description": plugin.description}
+            return {"layer": plugin.layer, "description": plugin.description, "bots": plugin.bots}
         return None
 
     def list_plugins(self) -> List[str]:
@@ -74,17 +66,13 @@ class PluginManager:
                 result.append(name)
         return result
 
-    def clear(self):
-        """清空所有注册信息"""
-        self._plugin_instances.clear()
-        logger.info("Plugin registry cleared")
 
 
 # 全局注册中心实例
 plugin_manager = PluginManager()
 
 
-def register_plugin(name: str, layer: int = 0, description: str = ""):
+def register_plugin(name: str, layer: int = 0, description: str = "", bots: list[type] | None = None):
     """装饰器：注册插件类
 
     使用示例：
@@ -96,7 +84,7 @@ def register_plugin(name: str, layer: int = 0, description: str = ""):
     """
     def decorator(cls):
         # 立即创建插件实例并注册
-        instance = cls(name=name, layer=layer, description=description)
+        instance = cls(name=name, layer=layer, description=description, bots=bots)
         plugin_manager.register(name, instance)
         return cls
     return decorator

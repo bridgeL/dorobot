@@ -25,17 +25,19 @@ class Plugin(ABC):
     哪个 session 激活了该插件，handle_message 就接收哪个 session。
     """
 
-    def __init__(self, name: str, layer: int = 2, description: str = ""):
+    def __init__(self, name: str, layer: int = 2, description: str = "", bots: list[type] | None = None):
         """初始化插件
 
         Args:
             name: 插件名称，唯一标识
             layer: 碰撞层，默认2层（应用层，独占）
             description: 插件描述
+            bots: 允许使用该插件的 Bot 类型列表，None 表示允许所有 Bot
         """
         self.name = name
         self.layer = layer
         self.description = description
+        self.bots = bots
 
     @abstractmethod
     async def handle_message(self, message: Message) -> bool:
