@@ -61,8 +61,8 @@ class Plugin(ABC):
         插件可以通过此方法获取当前会话，读写 session.data。
         不在消息处理上下文中时返回 None。
         """
-        from .session_manager import get_current_session
-        return get_current_session()
+        from .session_manager import session_manager
+        return session_manager.get_session(ctx.get_session_id())
 
     async def send_message(self, content: str, session_id: str | None = None, bot_id: str | None = None):
         """发送消息到当前会话
@@ -74,7 +74,7 @@ class Plugin(ABC):
             session_id: 目标会话ID，None 则使用当前上下文中的 session_id
             bot_id: Bot 的唯一标识，None 则从上下文获取
         """
-        from .bot_manager import get_current_bot
+        from .bot_manager import bot_manager
 
         if bot_id is None:
             bot_id = ctx.get_bot_id()
@@ -90,8 +90,8 @@ class Plugin(ABC):
             logger.warning(f"Plugin {self.name} has no session context, cannot send message")
             return
 
-        # 从当前上下文获取 bot 并发送消息
-        bot = get_current_bot()
+        # 从 bot_manager 获取 bot 并发送消息
+        bot = bot_manager.get_bot(bot_id)
         if bot:
             await bot.send(session_id, content)
         else:

@@ -12,7 +12,6 @@ from dorobot.layer import (
     PluginDeactivationError,
 )
 from dorobot.plugin_manager import plugin_manager
-import dorobot.context as ctx
 
 
 class Session:
@@ -29,14 +28,12 @@ class Session:
     插件实例是全局共享的，通过 PluginManager 获取。
     """
 
-    def __init__(self, session_id: str, bot_id: str = ""):
+    def __init__(self, session_id: str):
         """
         Args:
             session_id: 会话唯一标识（如群聊ID、频道ID）
-            bot_id: Bot 的唯一标识
         """
         self.session_id = session_id
-        self.bot_id = bot_id
         # 从原型复制 layer 结构
         self._layers: dict[int, Layer] = layer_prototype.create_layers()
         self.data: dict = {}  # 会话数据存储，插件可读写
@@ -117,64 +114,59 @@ class Session:
         Returns:
             bool: 消息是否被完全处理（True=没有被拦截，False=被某层拦截）
         """
-        # 设置当前会话到上下文
-        token = ctx.current_session.set(self)
-        try:
-            sorted_layers = self.get_all_layers()
+        sorted_layers = self.get_all_layers()
 
-            for layer in sorted_layers:
-                active_plugin_names = set(layer.get_active_plugins())
-                # 获取该层所有插件
-                all_plugin_names = set(
-                    plugin_manager.get_plugins_by_layer(layer.layer_id)
-                )
-                inactive_plugin_names = all_plugin_names - active_plugin_names
-
-                logger.debug(
-                    f"[Session] Layer {layer.layer_id}: 激活={list(active_plugin_names)}, 未激活={list(inactive_plugin_names)}"
-                )
-
-                if not active_plugin_names:
-                    continue
-
-                # 获取插件实例（从全局注册中心）
-                active_plugins: list[Plugin] = []
-                for name in active_plugin_names:
-                    plugin = plugin_manager.get_plugin(name)
-                    if plugin:
-                        active_plugins.append(plugin)
-                    else:
-                        logger.warning(
-                            f"[Session] Plugin({name}) is activated but not found in registry"
-                        )
-
-                if not active_plugins:
-                    continue
-
-                # 同一层的激活插件同时处理消息
-                tasks = [plugin.handle_message(message) for plugin in active_plugins]
-                results = await asyncio.gather(*tasks, return_exceptions=True)
-
-                # 检查是否有插件要求中断
-                for i, result in enumerate(results):
-                    plugin_name = list(active_plugin_names)[i]
-                    if isinstance(result, Exception):
-                        logger.error(
-                            f"[Session] Plugin({plugin_name}) raised exception: {result}"
-                        )
-                        continue
-                    if result is False:
-                        logger.debug(
-                            f"[Session] Plugin({plugin_name}) blocked message at layer {layer.layer_id}"
-                        )
-                        return False
+        for layer in sorted_layers:
+            active_plugin_names = set(layer.get_active_plugins())
+            # 获取该层所有插件
+            all_plugin_names = set(
+                plugin_manager.get_plugins_by_layer(layer.layer_id)
+            )
+            inactive_plugin_names = all_plugin_names - active_plugin_names
 
             logger.debug(
-                f"[Session] Message passed through all layers in session {self.session_id}"
+                f"[Session] Layer {layer.layer_id}: 激活={list(active_plugin_names)}, 未激活={list(inactive_plugin_names)}"
             )
-            return True
-        finally:
-            ctx.current_session.reset(token)
+
+            if not active_plugin_names:
+                continue
+
+            # 获取插件实例（从全局注册中心）
+            active_plugins: list[Plugin] = []
+            for name in active_plugin_names:
+                plugin = plugin_manager.get_plugin(name)
+                if plugin:
+                    active_plugins.append(plugin)
+                else:
+                    logger.warning(
+                        f"[Session] Plugin({name}) is activated but not found in registry"
+                    )
+
+            if not active_plugins:
+                continue
+
+            # 同一层的激活插件同时处理消息
+            tasks = [plugin.handle_message(message) for plugin in active_plugins]
+            results = await asyncio.gather(*tasks, return_exceptions=True)
+
+            # 检查是否有插件要求中断
+            for i, result in enumerate(results):
+                plugin_name = list(active_plugin_names)[i]
+                if isinstance(result, Exception):
+                    logger.error(
+                        f"[Session] Plugin({plugin_name}) raised exception: {result}"
+                    )
+                    continue
+                if result is False:
+                    logger.debug(
+                        f"[Session] Plugin({plugin_name}) blocked message at layer {layer.layer_id}"
+                    )
+                    return False
+
+        logger.debug(
+            f"[Session] Message passed through all layers in session {self.session_id}"
+        )
+        return True
 
     def get_layer(self, layer_id: int) -> Optional[Layer]:
         """获取指定层"""
