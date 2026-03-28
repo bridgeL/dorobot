@@ -6,9 +6,9 @@ from dorobot.plugin import Plugin, Message
 from dorobot.plugin_manager import register_plugin
 
 
-@register_plugin("echo", layer=1, description="回声插件：重复用户的消息")
+@register_plugin("echo", layer=3, description="回声插件：重复用户的消息")
 class EchoPlugin(Plugin):
-    """1层插件示例 - 回声（命令层，共享）"""
+    """3层插件示例 - 回声（共享层，共享）"""
 
     async def on_activate(self):
         self.activation_count = 0

@@ -28,7 +28,21 @@ def init_logging(
             "<level>{message}</level>"
         )
 
+    # 添加控制台输出
     logger.add(sink, format=format_str, level=level)
+
+    # 添加文件输出，每天轮转
+    logs_dir = Path.cwd() / "logs"
+    logs_dir.mkdir(exist_ok=True)
+
+    logger.add(
+        logs_dir / "bot.log",
+        format=format_str,
+        level=level,
+        rotation="00:00",  # 每天午夜轮转
+        retention="30 days",  # 保留30天
+        compression="zip"  # 压缩旧日志
+    )
 
 
 def load_plugins(plugins_dir: str | Path | None = None, package: str = "plugins"):
