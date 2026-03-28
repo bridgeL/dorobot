@@ -14,15 +14,12 @@ from dorobot.adapter import Adapter
 class NTQQAdapter(Adapter):
     name = "ntqq"
 
-    def __init__(self, host: str = "0.0.0.0", port: int = 8080):
+    def __init__(self, host: str = "0.0.0.0", port: int = 8082):
         self.host = host
         self.port = port
         self._server = None
         self._running = False
         self._client_counter = 0
-
-    def get_bot(self):
-        return None
 
     def _register_bot(self, bot: Bot):
         from dorobot.bot_manager import bot_manager
@@ -38,7 +35,6 @@ class NTQQAdapter(Adapter):
 
         bot = NTQQBot(self_id=client_id)
         bot._websocket = websocket
-        self._register_bot(bot)
 
         logger.info(f"[NTQQ] Client connected: {client_id} ({websocket.remote_address})")
 
@@ -46,17 +42,27 @@ class NTQQAdapter(Adapter):
             async for message in websocket:
                 try:
                     data = json.loads(message)
-                    await bot.handle_message(data)
+
+                    if (data.get("post_type") == "meta_event" and 
+                        data.get("meta_event_type") == "lifecycle" and 
+                        data.get("sub_type") == "connect"):
+                        self_id = str(data.get("self_id", client_id))
+                        bot.self_id = f"ntqq.{self_id}"
+                        self._register_bot(bot)
+                        logger.info(f"[NTQQ] Bot connected with self_id: {bot.self_id}")
+                        continue
+
+                    asyncio.create_task(bot.handle_message(data))
                 except json.JSONDecodeError:
                     logger.error(f"[NTQQ] Invalid JSON received: {message[:200]}")
                 except Exception as e:
                     logger.error(f"[NTQQ] Error handling message: {e}")
         except websockets.exceptions.ConnectionClosed:
-            logger.info(f"[NTQQ] Connection closed: {client_id}")
+            logger.info(f"[NTQQ] Connection closed: {bot.self_id}")
         finally:
-            self._unregister_bot(client_id)
+            self._unregister_bot(bot.self_id)
             await bot.stop()
-            logger.info(f"[NTQQ] Client disconnected: {client_id}")
+            logger.info(f"[NTQQ] Client disconnected: {bot.self_id}")
 
     async def start(self):
         self._running = True
@@ -84,7 +90,7 @@ class NTQQBot(Bot):
 
     async def send_ws(self, action: str, params: dict | None = None, timeout: float = 5.0) -> dict | None:
         if not self._websocket:
-            logger.error(f"[Bot]{self.self_id} 未连接，无法发送消息")
+            logger.error(f"[Bot] {self.self_id} 未连接，无法发送消息")
             return None
 
         request_id = str(uuid.uuid4())
@@ -99,31 +105,65 @@ class NTQQBot(Bot):
 
         try:
             await self._websocket.send(json.dumps(message))
-            logger.debug(f"[Bot]{self.self_id} sent {action}: {request_id}")
+            logger.debug(f"[Bot] {self.self_id} sent {action}: {request_id}")
             result = await asyncio.wait_for(future, timeout=timeout)
-            logger.debug(f"[Bot]{self.self_id} received response for {request_id}: {result}")
+            logger.debug(f"[Bot] {self.self_id} received response for {request_id}: {result}")
             return result
         except asyncio.TimeoutError:
-            logger.warning(f"[Bot]{self.self_id} request {request_id} timeout")
+            logger.warning(f"[Bot] {self.self_id} request {request_id} timeout")
         except Exception as e:
-            logger.error(f"[Bot]{self.self_id} failed to send message: {e}")
+            logger.error(f"[Bot] {self.self_id} failed to send message: {e}")
         finally:
             self._pending_requests.pop(request_id, None)
         return None
 
     async def send(self, session_id: str, content: str):
-        result = await self.send_ws("send_msg", {"session_id": session_id, "content": content})
-        logger.info(f"[Bot]{self.self_id} -> {session_id}: {content}")
+        if not content:
+            logger.debug("拦截空消息发送")
+            return
+
+        if session_id.startswith("ntqq.group."):
+            group_id = session_id[11:]
+            action = "send_group_msg"
+            msg = {
+                "group_id": group_id,
+                "message": [{"type": "text", "data": {"text": content}}],
+            }
+        elif session_id.startswith("ntqq.private."):
+            user_id = session_id[13:]
+            action = "send_private_msg"
+            msg = {
+                "user_id": user_id,
+                "message": [{"type": "text", "data": {"text": content}}],
+            }
+        else:
+            logger.error(f"未知的会话类型: {session_id}")
+            return
+
+        await self.send_ws(action, msg)
+        logger.info(f"[Bot] {self.self_id} -> {session_id}: {content}")
+
+    async def send_group(self, group_id: str, content: str):
+        await self.send(f"ntqq.group.{group_id}", content)
+
+    async def send_private(self, user_id: str, content: str):
+        await self.send(f"ntqq.private.{user_id}", content)
 
     async def handle_message(self, data: dict):
-        echo = data.get("echo")
-        if echo and echo in self._pending_requests:
-            future = self._pending_requests.get(echo)
+        if "echo" in data:
+            request_id = data["echo"]
+            future = self._pending_requests.get(request_id)
             if future and not future.done():
                 future.set_result(data)
             return
 
         post_type = data.get("post_type")
+
+        if post_type == "meta_event" and data.get("meta_event_type") == "heartbeat":
+            return
+        
+        logger.info(f"[NTQQ] Received message: {data}")
+
         if post_type == "message":
             await self._handle_message_notification(data)
 
@@ -133,16 +173,19 @@ class NTQQBot(Bot):
         group_id = data.get("group_id")
 
         if message_type == "group" and group_id:
-            session_id = f"group_{group_id}"
+            session_id = f"ntqq.group.{group_id}"
         else:
-            session_id = f"private_{user_id}"
+            session_id = f"ntqq.private.{user_id}"
 
-        message_content = self._extract_message_content(data.get("message", []))
+        message_content = data.get("raw_message") or self._extract_message_content(data.get("message", []))
+
+        sender = data.get("sender", {})
+        sender_name = sender.get("card") or sender.get("nickname") or user_id
 
         message = {
             "content": message_content,
             "sender_id": user_id,
-            "sender_name": data.get("sender", {}).get("nickname", user_id),
+            "sender_name": sender_name,
             "session_id": session_id,
             "msg_type": message_type,
             "raw_data": data,
