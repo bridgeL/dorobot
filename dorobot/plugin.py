@@ -64,6 +64,15 @@ class Plugin(ABC):
         from .session_manager import session_manager
         return session_manager.get_session(ctx.get_session_id())
 
+    def get_bot(self):
+        """获取当前 Bot 对象
+
+        插件可以通过此方法获取当前 Bot 实例。
+        不在消息处理上下文中时返回 None。
+        """
+        from .bot_manager import bot_manager
+        return bot_manager.get_bot(ctx.get_bot_id())
+
     async def send_message(self, content: str, session_id: str | None = None, bot_id: str | None = None):
         """发送消息到当前会话
 

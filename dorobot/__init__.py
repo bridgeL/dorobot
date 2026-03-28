@@ -10,7 +10,7 @@ from .bot import Bot
 from .adapter import Adapter
 from .bot_manager import BotManager, bot_manager
 from .adapter_manager import AdapterManager, adapter_manager
-from .utils import init_logging, load_plugins, run
+from .utils import init_logging, load_plugins, init_plugins, run
 from . import context
 
 # 导入内置插件
