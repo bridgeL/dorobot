@@ -3,7 +3,6 @@
 定义 Bot 的标准接口，所有 Bot 实现必须继承此类。
 """
 from abc import ABC, abstractmethod
-from typing import Callable, Awaitable
 
 
 class Bot(ABC):
@@ -36,7 +35,6 @@ class Bot(ABC):
             session_id: 会话ID
             message_data: 消息数据字典，包含 content, sender_id, sender_name, msg_type 等
         """
-        # 延迟导入避免循环依赖
         from .router import router
         await router.handle_message(self.self_id, session_id, message_data)
 

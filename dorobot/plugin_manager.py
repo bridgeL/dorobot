@@ -15,23 +15,10 @@ class PluginManager:
     插件是全局单例实例，被多个 Session 共享。
     """
 
-    _instance = None
-
-    def __new__(cls):
-        """单例模式"""
-        if cls._instance is None:
-            cls._instance = super().__new__(cls)
-            cls._instance._initialized = False
-        return cls._instance
-
     def __init__(self):
-        if self._initialized:
-            return
-
         self._plugin_classes: Dict[str, Type[Plugin]] = {}  # name -> PluginClass
         self._plugin_metadata: Dict[str, dict] = {}  # name -> {layer, description, ...}
         self._plugin_instances: Dict[str, Plugin] = {}  # name -> Plugin instance (singleton)
-        self._initialized = True
 
     def register(self, name: str, plugin_class: Type[Plugin], layer: int = 0,
                  description: str = "", **metadata) -> bool:

@@ -89,34 +89,32 @@ def register_bot(bot):
     if not bot_id:
         bot_id = f"{bot.__class__.__name__.lower()}_{id(bot)}"
 
-    bot_manager._bot_instances[bot_id] = bot
+    bot_manager.add_bot(bot)
     logger.info(f"Registered bot: {bot_id}")
 
 
 def run():
     """启动 DoroBot，阻塞直到收到 KeyboardInterrupt"""
     from .router import router
+    from .adapter_manager import adapter_manager
+    from .bot_manager import bot_manager
 
     async def _run():
         logger.info("=" * 50)
         logger.info("DoroBot Starting...")
         logger.info("=" * 50)
 
-        # 启动所有已注册的 bot
-        await router.start_all()
+        # adapter 管理外部系统生命周期
+        # adapter.start() 会注册 bot 到 bot_manager，并启动它们
+        await adapter_manager.start_all()
 
-        try:
-            # 保持运行直到收到停止信号
-            while True:
-                await asyncio.sleep(1)
-        except asyncio.CancelledError:
-            pass
-        finally:
-            logger.info("Shutting down...")
-            await router.stop_all()
-            logger.info("DoroBot stopped")
+        # 保持运行直到收到停止信号
+        while True:
+            await asyncio.sleep(1)
 
     try:
         asyncio.run(_run())
     except KeyboardInterrupt:
-        logger.info("Received KeyboardInterrupt")
+        pass
+    finally:
+        logger.info("DoroBot stopped")

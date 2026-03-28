@@ -1,15 +1,13 @@
 """多插件聊天机器人 - 启动入口"""
-from dorobot import init_logging, load_plugins, register_bot, run
-from dorobot.bots.console import ConsoleBot
+from dorobot import init_logging, load_plugins, run, register_adapter
+from dorobot.adapters.console import ConsoleAdapter
+from dorobot.adapters.ntqq import NTQQAdapter
 
-# 初始化日志
 init_logging(level="DEBUG")
 
-# 加载插件
 load_plugins()
 
-# 注册 Bot
-register_bot(ConsoleBot())
+register_adapter(ConsoleAdapter())
+register_adapter(NTQQAdapter())
 
-# 启动程序
 run()

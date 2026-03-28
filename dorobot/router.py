@@ -42,12 +42,12 @@ class MessageRouter:
         except Exception as e:
             logger.error(f"Bot {bot_id} crashed: {e}")
         finally:
-            bot_manager._bot_instances.pop(bot_id, None)
+            bot_manager.remove_bot(bot_id)
             self._bot_tasks.pop(bot_id, None)
 
     async def start_all(self):
         """启动所有已注册的 Bot"""
-        for bot_id, bot in bot_manager._bot_instances.items():
+        for bot_id, bot in bot_manager.get_all_bots().items():
             if bot_id not in self._bot_tasks:
                 task = asyncio.create_task(self._run_bot(bot_id, bot))
                 self._bot_tasks[bot_id] = task
@@ -55,7 +55,7 @@ class MessageRouter:
 
     async def stop_bot(self, bot_id: str):
         """停止指定 Bot"""
-        bot = bot_manager._bot_instances.get(bot_id)
+        bot = bot_manager.get_bot(bot_id)
         if not bot:
             return
 
@@ -70,13 +70,13 @@ class MessageRouter:
             except asyncio.CancelledError:
                 pass
 
-        bot_manager._bot_instances.pop(bot_id, None)
+        bot_manager.remove_bot(bot_id)
         self._bot_tasks.pop(bot_id, None)
         logger.info(f"Stopped bot: {bot_id}")
 
     async def stop_all(self):
         """停止所有 Bot"""
-        tasks = [self.stop_bot(bot_id) for bot_id in list(bot_manager._bot_instances.keys())]
+        tasks = [self.stop_bot(bot_id) for bot_id in bot_manager.list_bots()]
         await asyncio.gather(*tasks, return_exceptions=True)
 
     async def handle_message(self, bot_id: str, session_id: str, message_data: dict) -> bool:

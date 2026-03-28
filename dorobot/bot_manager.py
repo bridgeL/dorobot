@@ -11,7 +11,7 @@ from dorobot.bot import Bot
 
 
 class BotManager:
-    """Bot 管理器（单例）
+    """Bot 管理器
 
     管理所有 Bot 实例：
     - 注册 Bot 类
@@ -19,23 +19,11 @@ class BotManager:
     - 统一管理所有 Bot 的启动和停止
     """
 
-    _instance = None
-
-    def __new__(cls):
-        if cls._instance is None:
-            cls._instance = super().__new__(cls)
-            cls._instance._initialized = False
-        return cls._instance
-
     def __init__(self):
-        if self._initialized:
-            return
-
         self._bot_classes: dict[str, Type[Bot]] = {}  # name -> BotClass
         self._bot_instances: dict[str, Bot] = {}      # name -> BotInstance
         self._bot_metadata: dict[str, dict] = {}      # name -> {auto_start, ...}
         self._pending_starts: list[str] = []          # bots waiting to be started
-        self._initialized = True
 
     def register(self, name: str | None, bot_class: Type[Bot], auto_start: bool = True, **metadata) -> bool:
         """注册 Bot 类
@@ -114,6 +102,14 @@ class BotManager:
     def get_all_bots(self) -> dict[str, Bot]:
         """获取所有 Bot 实例"""
         return self._bot_instances.copy()
+
+    def add_bot(self, bot: Bot):
+        """添加 Bot 实例"""
+        self._bot_instances[bot.self_id] = bot
+
+    def remove_bot(self, bot_id: str):
+        """移除 Bot 实例"""
+        self._bot_instances.pop(bot_id, None)
 
     def list_bots(self) -> list[str]:
         """列出所有已注册的 Bot 名称"""
