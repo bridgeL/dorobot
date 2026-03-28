@@ -1,7 +1,5 @@
 """Bot管理插件 - 提供查看bot和session信息的命令"""
-
-from loguru import logger
-
+from dorobot.adapters.console import ConsoleBot
 from dorobot.plugin import Plugin, Message
 from dorobot.plugin_manager import register_plugin
 from dorobot.bot_manager import bot_manager
@@ -9,7 +7,7 @@ from dorobot.session_manager import session_manager
 import dorobot.context as ctx
 
 
-@register_plugin("bot_manager", layer=1, description="Bot管理插件：查看bot和session信息")
+@register_plugin("bot_manager", layer=1, description="Bot管理插件：查看bot和session信息", bots=[ConsoleBot])
 class BotManagerPlugin(Plugin):
     """1层插件 - Bot管理（命令层，共享）"""
 
