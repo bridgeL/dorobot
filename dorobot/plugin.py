@@ -47,6 +47,14 @@ class Plugin(ABC):
         """
         pass
 
+    async def on_activate(self):
+        """插件被激活时调用
+
+        子类可重写此方法，在插件被激活时执行初始化逻辑。
+        例如：初始化状态、加载数据等。
+        """
+        pass
+
     def get_session(self):
         """获取当前 Session 对象
 

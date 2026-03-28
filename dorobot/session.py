@@ -45,7 +45,7 @@ class Session:
         """获取指定层（如果不存在返回 None）"""
         return self._layers.get(layer_id)
 
-    def activate_plugin(
+    async def activate_plugin(
         self, plugin_name: str, layer_id: int, silent: bool = False
     ) -> bool:
         """激活指定插件
@@ -67,10 +67,19 @@ class Session:
                 f"会话中不存在第 {layer_id} 层"
             )
         result = layer.activate_plugin(plugin_name, silent=silent)
-        if result and not silent:
-            logger.success(
-                f"Plugin {plugin_name} activated in session {self.session_id}, layer {layer_id}"
-            )
+        if result:
+            # 调用插件的 on_activate 方法
+            plugin = plugin_manager.get_plugin(plugin_name)
+            if plugin:
+                try:
+                    await plugin.on_activate()
+                except Exception as e:
+                    logger.error(f"Plugin {plugin_name} on_activate failed: {e}")
+
+            if not silent:
+                logger.success(
+                    f"Plugin {plugin_name} activated in session {self.session_id}, layer {layer_id}"
+                )
         return result
 
     def deactivate_plugin(self, plugin_name: str, layer_id: int) -> bool:

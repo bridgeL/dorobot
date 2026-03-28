@@ -5,7 +5,6 @@
 from ..plugin import Plugin, Message
 from ..plugin_manager import register_plugin, plugin_manager
 from ..layer import PluginActivationError, PluginDeactivationError
-from loguru import logger
 
 
 @register_plugin("meta", layer=0, description="Meta插件：管理其他插件的激活/关闭")
@@ -91,8 +90,8 @@ class MetaPlugin(Plugin):
         else:
             # 激活插件
             try:
-                session.activate_plugin(plugin_name, layer_id)
                 await self.send_message(f"🟢 插件 {plugin_name} 已激活")
+                await session.activate_plugin(plugin_name, layer_id)
             except PluginActivationError as e:
                 await self.send_message(f"❌ 激活插件失败：{e}")
 

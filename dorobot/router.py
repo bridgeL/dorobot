@@ -99,7 +99,7 @@ class MessageRouter:
             return False
 
         # 通过 SessionManager 获取或创建会话
-        session = self._session_manager.get_or_create_session(bot_id, session_id)
+        session = await self._session_manager.get_or_create_session(bot_id, session_id)
 
         # 设置上下文变量
         ctx.bot_id.set(bot_id)

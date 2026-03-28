@@ -50,7 +50,7 @@ class SessionManager:
         key = self._make_key(bot_id, session_id)
         return self._sessions.get(key)
 
-    def get_or_create_session(self, bot_id: str, session_id: str) -> Session:
+    async def get_or_create_session(self, bot_id: str, session_id: str) -> Session:
         """获取或创建会话
 
         新会话会自动激活0层、1层和3层的所有插件。
@@ -67,16 +67,16 @@ class SessionManager:
             self._sessions[key] = Session(session_id, bot_id)
             logger.info(f"Created new session: {key}")
             # 自动激活 0层、1层、3层的所有插件
-            self._auto_activate_shared_plugins(self._sessions[key])
+            await self._auto_activate_shared_plugins(self._sessions[key])
         return self._sessions[key]
 
-    def _auto_activate_shared_plugins(self, session: Session):
+    async def _auto_activate_shared_plugins(self, session: Session):
         """自动激活共享层（0、1、3层）的所有插件"""
         for layer_id in (0, 1, 3):
             plugin_names = plugin_manager.get_plugins_by_layer(layer_id)
             for name in plugin_names:
                 if plugin_manager.get_plugin(name):  # 确保插件实例存在
-                    session.activate_plugin(name, layer_id, silent=True)
+                    await session.activate_plugin(name, layer_id, silent=True)
 
     def remove_session(self, bot_id: str, session_id: str) -> bool:
         """移除会话
@@ -111,7 +111,7 @@ class SessionManager:
             return [k for k in self._sessions.keys() if k.startswith(f"{bot_id}:")]
         return list(self._sessions.keys())
 
-    def activate_plugin(self, bot_id: str, session_id: str, plugin_name: str, layer_id: int) -> bool:
+    async def activate_plugin(self, bot_id: str, session_id: str, plugin_name: str, layer_id: int) -> bool:
         """在指定会话中激活插件
 
         Args:
@@ -133,7 +133,7 @@ class SessionManager:
             logger.warning(f"Plugin {plugin_name} not found in registry")
             return False
 
-        return session.activate_plugin(plugin_name, layer_id)
+        return await session.activate_plugin(plugin_name, layer_id)
 
     def deactivate_plugin(self, bot_id: str, session_id: str, plugin_name: str, layer_id: int) -> bool:
         """在指定会话中关闭插件"""
