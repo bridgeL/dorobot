@@ -3,11 +3,11 @@
 统一管理所有 Bot 实例的注册、初始化和生命周期。
 采用单例模式，全局只有一个 BotManager 实例。
 """
-from typing import Optional, Type, Callable, Awaitable
+from typing import Optional, Type
 import asyncio
 from loguru import logger
 
-from .bot import Bot
+from dorobot.bot import Bot
 
 
 class BotManager:

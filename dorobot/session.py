@@ -4,15 +4,15 @@ from typing import Optional
 import asyncio
 from loguru import logger
 
-from .plugin import Plugin, Message
-from .layer import (
+from dorobot.plugin import Plugin, Message
+from dorobot.layer import (
     Layer,
     layer_prototype,
     PluginActivationError,
     PluginDeactivationError,
 )
-from .plugin_manager import plugin_manager
-from . import context as ctx
+from dorobot.plugin_manager import plugin_manager
+import dorobot.context as ctx
 
 
 class Session:

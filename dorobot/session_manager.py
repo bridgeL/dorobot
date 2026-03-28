@@ -2,9 +2,9 @@
 from typing import Optional
 from loguru import logger
 
-from .session import Session
-from .plugin_manager import plugin_manager
-from . import context as ctx
+from dorobot.session import Session
+from dorobot.plugin_manager import plugin_manager
+import dorobot.context as ctx
 
 
 def get_current_session() -> Optional[Session]:

@@ -5,7 +5,7 @@
 from typing import Dict, List, Optional, Type
 from loguru import logger
 
-from .plugin import Plugin
+from dorobot.plugin import Plugin
 
 
 class PluginManager:

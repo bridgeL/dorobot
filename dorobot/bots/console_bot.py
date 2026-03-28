@@ -5,11 +5,10 @@
 - 将系统输出打印到命令行
 """
 import asyncio
-import sys
-from typing import Callable, Awaitable
+from typing import Callable
 from loguru import logger
 
-from ..bot import Bot
+from dorobot.bot import Bot
 
 
 class ConsoleBot(Bot):

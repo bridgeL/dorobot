@@ -13,27 +13,4 @@ from .utils import init_logging, load_plugins
 from . import context
 
 # 导入内置插件
-from .plugins.meta import MetaPlugin
-
-__all__ = [
-    "Plugin",
-    "Message",
-    "Layer",
-    "Session",
-    "SessionManager",
-    "get_session_manager",
-    "PluginManager",
-    "plugin_manager",
-    "register_plugin",
-    "MessageRouter",
-    "get_router",
-    "Bot",
-    "BotManager",
-    "bot_manager",
-    "register_bot",
-    "ConsoleBot",
-    "MetaPlugin",
-    "init_logging",
-    "load_plugins",
-    "context",
-]
+from .meta_plugin import MetaPlugin

@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from typing import Optional
 from loguru import logger
 
-from . import context as ctx
+import dorobot.context as ctx
 
 
 @dataclass

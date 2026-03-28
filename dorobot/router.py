@@ -6,11 +6,10 @@
 import asyncio
 from loguru import logger
 
-from .plugin import Message
-from .session import Session
-from .session_manager import get_session_manager
-from .bot import Bot
-from . import context as ctx
+from dorobot.plugin import Message
+from dorobot.session_manager import get_session_manager
+from dorobot.bot import Bot
+import dorobot.context as ctx
 
 
 # 全局 MessageRouter 实例（懒加载）

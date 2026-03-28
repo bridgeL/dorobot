@@ -2,9 +2,9 @@
 
 位于 0 层，负责处理 /插件名 格式的命令，用于激活或关闭 1 层及以上的插件。
 """
-from ..plugin import Plugin, Message
-from ..plugin_manager import register_plugin, plugin_manager
-from ..layer import PluginActivationError, PluginDeactivationError
+from dorobot.plugin import Plugin, Message
+from dorobot.plugin_manager import register_plugin, plugin_manager
+from dorobot.layer import PluginActivationError, PluginDeactivationError
 
 
 @register_plugin("meta", layer=0, description="Meta插件：管理其他插件的激活/关闭")
@@ -27,7 +27,7 @@ class MetaPlugin(Plugin):
         - 是：切换对应插件状态，返回 False（终止传递）
         - 否：返回 True（继续传递）
         """
-        from ..session_manager import get_current_session
+        from .session_manager import get_current_session
         session = get_current_session()
         if not session:
             return True
