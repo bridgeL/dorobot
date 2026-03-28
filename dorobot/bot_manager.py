@@ -37,11 +37,11 @@ class BotManager:
         self._pending_starts: list[str] = []          # bots waiting to be started
         self._initialized = True
 
-    def register(self, name: str, bot_class: Type[Bot], auto_start: bool = True, **metadata) -> bool:
+    def register(self, name: str | None, bot_class: Type[Bot], auto_start: bool = True, **metadata) -> bool:
         """注册 Bot 类
 
         Args:
-            name: Bot 唯一名称
+            name: Bot 唯一名称，为 None 时使用 bot.self_id
             bot_class: Bot 类（必须继承 Bot）
             auto_start: 是否自动启动
             **metadata: 其他元数据，会传递给 Bot 构造函数
@@ -49,6 +49,18 @@ class BotManager:
         Returns:
             bool: 是否注册成功
         """
+        # 先创建临时实例获取 self_id（如果 name 为 None）
+        if name is None:
+            try:
+                temp_instance = bot_class(**metadata)
+                name = temp_instance.self_id
+                if not name:
+                    logger.error("Bot self_id is empty, cannot register")
+                    return False
+            except Exception as e:
+                logger.error(f"Failed to create bot for self_id: {e}")
+                return False
+
         if name in self._bot_classes:
             logger.warning(f"Bot {name} already registered")
             return False
@@ -166,14 +178,14 @@ class BotManager:
 bot_manager = BotManager()
 
 
-def register_bot(name: str, auto_start: bool = True, **kwargs):
+def register_bot(name: str | None = None, auto_start: bool = True, **kwargs):
     """装饰器：注册 Bot 类
 
     使用示例：
-        @register_bot("console", auto_start=True, sender_name="User")
+        @register_bot(auto_start=True)
         class ConsoleBot(Bot):
-            async def send(self, session_id, content):
-                print(f"[Bot] {content}")
+            def __init__(self):
+                super().__init__(self_id="console")
 
         # 在其他地方获取 Bot 实例
         console = bot_manager.get_bot("console")

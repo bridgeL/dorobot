@@ -15,7 +15,8 @@ import asyncio
 from loguru import logger
 
 from dorobot import (
-    get_router,
+    router,
+    bot_manager,
     init_logging,
     load_plugins,
 )
@@ -34,15 +35,17 @@ async def main():
     # 加载插件（注册到全局 PluginManager）
     load_plugins()
 
-    # 创建消息路由器（内部使用 SessionManager）
-    router = get_router()
+    # 注册 ConsoleBot 到 BotManager（会自动创建实例）
+    bot_manager.register("console", ConsoleBot, auto_start=False)
 
-    # 手动实例化 ConsoleBot
-    console_bot = ConsoleBot()
+    # 注册 Bot 到 Router（设置消息回调）
+    router.register_bot("console")
 
-    # 注册 Bot 到 Router（指定 bot_id）
-    # 当 Bot 收到消息时，Router 会自动创建/获取 Session
-    router.register_bot(console_bot, "console")
+    # 获取 bot 实例并运行
+    console_bot = bot_manager.get_bot("console")
+    if not console_bot:
+        logger.error("Failed to create console bot")
+        return
 
     # 启动 Bot
     # 不需要手动创建 "default" session，当用户输入消息时会自动创建

@@ -153,13 +153,5 @@ class SessionManager:
         return f"SessionManager(sessions={list(self._sessions.keys())})"
 
 
-# 全局 SessionManager 实例（懒加载）
-_session_manager_instance: Optional[SessionManager] = None
-
-
-def get_session_manager() -> SessionManager:
-    """获取全局 SessionManager 实例"""
-    global _session_manager_instance
-    if _session_manager_instance is None:
-        _session_manager_instance = SessionManager()
-    return _session_manager_instance
+# 全局 SessionManager 实例
+session_manager = SessionManager()

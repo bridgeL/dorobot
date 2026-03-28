@@ -7,21 +7,10 @@ import asyncio
 from loguru import logger
 
 from dorobot.plugin import Message
-from dorobot.session_manager import get_session_manager
+from dorobot.session_manager import session_manager
 from dorobot.bot import Bot
+from dorobot.bot_manager import bot_manager
 import dorobot.context as ctx
-
-
-# 全局 MessageRouter 实例（懒加载）
-_router_instance: "MessageRouter | None" = None
-
-
-def get_router() -> "MessageRouter":
-    """获取全局 MessageRouter 实例"""
-    global _router_instance
-    if _router_instance is None:
-        _router_instance = MessageRouter()
-    return _router_instance
 
 
 class MessageRouter:
@@ -42,42 +31,36 @@ class MessageRouter:
 
     def __init__(self):
         """初始化消息路由器"""
-        self._bots: dict[str, Bot] = {}  # bot_id -> Bot
-        self._session_manager = get_session_manager()
+        self._session_manager = session_manager
         logger.info("MessageRouter initialized")
 
-    def register_bot(self, bot: Bot, bot_id: str | None = None) -> str:
-        """注册一个 Bot
+    def register_bot(self, bot_id: str) -> bool:
+        """注册一个 Bot 到路由系统
 
-        为该 Bot 设置消息回调，使其收到的消息能路由到插件系统。
+        从 bot_manager 获取 Bot 并设置消息回调。
 
         Args:
-            bot: Bot 实例
-            bot_id: Bot 的唯一标识，如 "qq", "discord", "console"
-                   如果不提供，使用类名+内存地址
+            bot_id: Bot 的唯一标识
 
         Returns:
-            str: 分配的 bot_id
+            bool: 是否注册成功
         """
-        if bot_id is None:
-            bot_id = f"{bot.__class__.__name__.lower()}_{id(bot)}"
-
-        if bot_id in self._bots:
-            logger.warning(f"Bot '{bot_id}' already registered, overwriting")
-
-        self._bots[bot_id] = bot
+        bot = bot_manager.get_bot(bot_id)
+        if not bot:
+            logger.error(f"Bot '{bot_id}' not found in bot_manager")
+            return False
 
         # 创建绑定该 bot 的回调
         async def callback(session_id: str, message: dict):
             await self._handle_bot_message(bot_id, session_id, message)
 
         bot.on("msg", callback)
-        logger.info(f"Registered bot: {bot_id} ({bot.__class__.__name__})")
-        return bot_id
+        logger.info(f"Registered bot to router: {bot_id} ({bot.__class__.__name__})")
+        return True
 
     def get_bot(self, bot_id: str) -> Bot | None:
         """获取指定 bot_id 的 Bot 实例"""
-        return self._bots.get(bot_id)
+        return bot_manager.get_bot(bot_id)
 
     # ========== 消息处理 ==========
 
@@ -92,7 +75,7 @@ class MessageRouter:
         Returns:
             bool: 消息是否被完全处理
         """
-        bot = self._bots.get(bot_id)
+        bot = bot_manager.get_bot(bot_id)
         if not bot:
             logger.error(f"Bot '{bot_id}' not found")
             return False
@@ -135,7 +118,7 @@ class MessageRouter:
         if bot_id is None:
             bot_id = ctx.get_bot_id()
 
-        bot = self._bots.get(bot_id) if bot_id else None
+        bot = bot_manager.get_bot(bot_id) if bot_id else None
         if not bot:
             logger.error("No bot available to send message")
             return
@@ -143,4 +126,8 @@ class MessageRouter:
         asyncio.create_task(bot.send(session_id, content))
 
     def __repr__(self):
-        return f"MessageRouter(bots={list(self._bots.keys())}, session_manager={self._session_manager})"
+        return f"MessageRouter(bots={bot_manager.list_bots()}, session_manager={self._session_manager})"
+
+
+# 全局 MessageRouter 实例
+router = MessageRouter()

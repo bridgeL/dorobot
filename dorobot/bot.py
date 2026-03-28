@@ -14,7 +14,8 @@ class Bot(ABC):
     - on: 注册事件处理器
     """
 
-    def __init__(self):
+    def __init__(self, self_id: str = ""):
+        self.self_id: str = self_id
         self._handlers: dict[str, list[Callable]] = {}
 
     @abstractmethod

@@ -74,7 +74,7 @@ class Plugin(ABC):
             session_id: 目标会话ID，None 则使用当前上下文中的 session_id
             bot_id: Bot 的唯一标识，None 则从上下文获取
         """
-        from .router import get_router
+        from .router import router
 
         if bot_id is None:
             bot_id = ctx.get_bot_id()
@@ -91,7 +91,6 @@ class Plugin(ABC):
             return
 
         # 通过 router 获取 bot 并发送消息
-        router = get_router()
         bot = router.get_bot(bot_id)
         if bot:
             await bot.send(session_id, content)

@@ -31,7 +31,7 @@ class ConsoleBot(Bot):
 
     def __init__(self):
         """初始化 Console Bot"""
-        super().__init__()
+        super().__init__(self_id="console")
         self._running = False
         self._input_task = None
 

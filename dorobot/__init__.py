@@ -3,9 +3,9 @@
 from .plugin import Plugin, Message
 from .layer import Layer
 from .session import Session
-from .session_manager import SessionManager, get_session_manager
+from .session_manager import SessionManager, session_manager
 from .plugin_manager import PluginManager, plugin_manager, register_plugin
-from .router import MessageRouter, get_router
+from .router import MessageRouter, router
 from .bot import Bot
 from .bot_manager import BotManager, bot_manager, register_bot
 from .bots.console_bot import ConsoleBot
