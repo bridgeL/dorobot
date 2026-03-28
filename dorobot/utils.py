@@ -1,5 +1,6 @@
 """DoroBot 工具函数"""
 import sys
+import asyncio
 import importlib
 from pathlib import Path
 from loguru import logger
@@ -65,7 +66,7 @@ def load_plugins(plugins_dir: str | Path | None = None, package: str = "plugins"
         module_name = f"{package}.{file_path.stem}"
         try:
             importlib.import_module(module_name)
-            logger.success(f"Loaded plugin module: {file_path.name}")
+            logger.info(f"Loaded plugin module: {file_path.name}")
             loaded.append(file_path.stem)
         except Exception as e:
             logger.error(f"Failed to load plugin {file_path.name}: {e}")
@@ -74,3 +75,48 @@ def load_plugins(plugins_dir: str | Path | None = None, package: str = "plugins"
     plugin_manager.init_all_plugins()
 
     return loaded
+
+
+def register_bot(bot):
+    """注册 Bot 实例到系统
+
+    Args:
+        bot: Bot 实例
+    """
+    from .bot_manager import bot_manager
+
+    bot_id = bot.self_id
+    if not bot_id:
+        bot_id = f"{bot.__class__.__name__.lower()}_{id(bot)}"
+
+    bot_manager._bot_instances[bot_id] = bot
+    logger.info(f"Registered bot: {bot_id}")
+
+
+def run():
+    """启动 DoroBot，阻塞直到收到 KeyboardInterrupt"""
+    from .router import router
+
+    async def _run():
+        logger.info("=" * 50)
+        logger.info("DoroBot Starting...")
+        logger.info("=" * 50)
+
+        # 启动所有已注册的 bot
+        await router.start_all()
+
+        try:
+            # 保持运行直到收到停止信号
+            while True:
+                await asyncio.sleep(1)
+        except asyncio.CancelledError:
+            pass
+        finally:
+            logger.info("Shutting down...")
+            await router.stop_all()
+            logger.info("DoroBot stopped")
+
+    try:
+        asyncio.run(_run())
+    except KeyboardInterrupt:
+        logger.info("Received KeyboardInterrupt")

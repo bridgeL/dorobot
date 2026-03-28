@@ -61,7 +61,7 @@ class PluginManager:
             "description": description,
             **metadata
         }
-        logger.success(f"Registered plugin: {name} (layer={layer}) - {description}")
+        logger.info(f"Registered plugin: {name} (layer={layer}) - {description}")
         return True
 
     def unregister(self, name: str) -> bool:

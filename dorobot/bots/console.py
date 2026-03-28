@@ -5,7 +5,6 @@
 - 将系统输出打印到命令行
 """
 import asyncio
-from typing import Callable
 from loguru import logger
 
 from dorobot.bot import Bot
@@ -42,13 +41,7 @@ class ConsoleBot(Bot):
             session_id: 消息来源的会话ID
             content: 消息内容
         """
-        print(f"\n[Bot@{session_id}] {content}\n", flush=True)
-        logger.info(f"Bot -> {session_id}: {content}")
-
-    def _on_handler_error(self, event_name: str, handler: Callable, error: Exception):
-        """处理回调错误"""
-        logger.error(f"Handler error for event '{event_name}': {error}")
-        print(f"\n[Error] 处理消息时出错: {error}\n")
+        logger.info(f"[Bot] {self.self_id} -> {session_id}: {content}")
 
     def _build_message(self, content: str, session_id: str, sender_name: str) -> dict:
         """构建消息对象
@@ -102,37 +95,30 @@ class ConsoleBot(Bot):
                 # 解析输入
                 parsed = self._parse_input(content)
                 if parsed is None:
-                    print("\n[Error] 格式错误。正确格式: session_id user_id content")
-                    print("示例: group1 Alice 你好\n")
+                    logger.warning("格式错误。正确格式: session_id user_id content")
                     continue
 
                 session_id, user_id, message_content = parsed
 
-                # 构建消息并触发回调
+                # 构建消息并处理
                 message = self._build_message(message_content, session_id, user_id)
-                logger.debug(f"Console input [{session_id}/{user_id}]: {message_content}")
 
-                # 触发 msg 事件，传递 (session_id, message)
-                await self.emit("msg", session_id, message)
+                # 调用 on_message 将消息路由到插件系统
+                await self.on_message(session_id, message)
 
             except asyncio.CancelledError:
                 break
             except EOFError:
-                print("\n[Bot] 输入结束")
+                logger.info("Console input ended")
                 self._running = False
                 break
             except Exception as e:
                 logger.error(f"Input error: {e}")
-                print(f"\n[Error] 读取输入失败: {e}\n")
 
     async def start(self):
         """启动 Console Bot"""
         self._running = True
-        print(f"\n{'=' * 50}")
-        print("Console Bot 已启动")
-        print("输入格式: session_id user_id content")
-        print("示例: group1 Alice 你好")
-        print(f"{'=' * 50}\n")
+        logger.info("Console Bot started. Input format: session_id user_id content")
 
         self._input_task = asyncio.create_task(self._input_loop())
 
@@ -150,7 +136,6 @@ class ConsoleBot(Bot):
                 await self._input_task
             except asyncio.CancelledError:
                 pass
-        print("\n[Bot] 已停止")
         logger.info("ConsoleBot stopped")
 
     async def run(self):
@@ -158,7 +143,6 @@ class ConsoleBot(Bot):
         try:
             await self.start()
         except KeyboardInterrupt:
-            print("\n")
             logger.info("Received KeyboardInterrupt")
         finally:
             await self.stop()

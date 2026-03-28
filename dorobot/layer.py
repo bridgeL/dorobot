@@ -51,13 +51,14 @@ class Layer:
         # exclusive层：只能激活一个
         return len(self._active_plugins) == 0
 
-    def activate_plugin(self, plugin_name: str, silent: bool = False) -> bool:
+    def activate_plugin(self, plugin_name: str, session_id: str = "", silent: bool = False) -> bool:
         """激活指定插件
 
         对于独占层（exclusive），如果该层已有其他激活的插件，抛出异常
 
         Args:
             plugin_name: 要激活的插件名称
+            session_id: 会话ID，用于日志
             silent: 是否静默（不输出日志），用于自动激活
 
         Returns:
@@ -84,10 +85,10 @@ class Layer:
 
         self._active_plugins.add(plugin_name)
         if not silent:
-            logger.info(f"Activated plugin {plugin_name} in layer {self.layer_id}")
+            logger.debug(f"[Layer] Plugin({plugin_name}) activated in layer {self.layer_id}, session {session_id}")
         return True
 
-    def deactivate_plugin(self, plugin_name: str) -> bool:
+    def deactivate_plugin(self, plugin_name: str, session_id: str = "") -> bool:
         """关闭指定插件
 
         Returns:
@@ -102,7 +103,7 @@ class Layer:
             )
 
         self._active_plugins.discard(plugin_name)
-        logger.info(f"Deactivated plugin {plugin_name} in layer {self.layer_id}")
+        logger.debug(f"[Layer] Plugin({plugin_name}) deactivated in layer {self.layer_id}, session {session_id}")
         return True
 
     def deactivate_all(self):

@@ -79,7 +79,7 @@ class BotManager:
         try:
             instance = bot_class(**metadata)
             self._bot_instances[name] = instance
-            logger.success(f"Registered and created bot: {name}")
+            logger.info(f"Registered and created bot: {name}")
 
             # 自动启动（如果有事件循环）
             if auto_start:
@@ -129,7 +129,7 @@ class BotManager:
 
         await asyncio.gather(*tasks, return_exceptions=True)
         self._bot_instances.clear()
-        logger.success("All bots stopped")
+        logger.info("All bots stopped")
 
     async def _stop_bot_safe(self, name: str, bot: Bot):
         """安全停止单个 Bot"""

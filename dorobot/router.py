@@ -8,8 +8,8 @@ from loguru import logger
 
 from dorobot.plugin import Message
 from dorobot.session_manager import session_manager
-from dorobot.bot import Bot
 from dorobot.bot_manager import bot_manager
+from dorobot.bot import Bot
 import dorobot.context as ctx
 
 
@@ -17,7 +17,7 @@ class MessageRouter:
     """消息路由器
 
     核心职责：
-    1. 管理所有 Bot（通过 Bot 实例直接管理）
+    1. 协调 BotManager 管理 Bot 生命周期
     2. 协调 SessionManager 管理会话生命周期
     3. 接收 Bot 消息并路由到对应会话的插件
     4. 处理跨 Bot/会话的消息发送
@@ -32,54 +32,66 @@ class MessageRouter:
     def __init__(self):
         """初始化消息路由器"""
         self._session_manager = session_manager
+        self._bot_tasks: dict[str, asyncio.Task] = {}  # bot_id -> running task
         logger.info("MessageRouter initialized")
 
-    def register_bot(self, bot_id: str) -> bool:
-        """注册一个 Bot 到路由系统
+    async def _run_bot(self, bot_id: str, bot: Bot):
+        """运行 Bot 并处理异常"""
+        try:
+            await bot.start()
+        except Exception as e:
+            logger.error(f"Bot {bot_id} crashed: {e}")
+        finally:
+            bot_manager._bot_instances.pop(bot_id, None)
+            self._bot_tasks.pop(bot_id, None)
 
-        从 bot_manager 获取 Bot 并设置消息回调。
+    async def start_all(self):
+        """启动所有已注册的 Bot"""
+        for bot_id, bot in bot_manager._bot_instances.items():
+            if bot_id not in self._bot_tasks:
+                task = asyncio.create_task(self._run_bot(bot_id, bot))
+                self._bot_tasks[bot_id] = task
+                logger.info(f"Started bot: {bot_id}")
 
-        Args:
-            bot_id: Bot 的唯一标识
-
-        Returns:
-            bool: 是否注册成功
-        """
-        bot = bot_manager.get_bot(bot_id)
+    async def stop_bot(self, bot_id: str):
+        """停止指定 Bot"""
+        bot = bot_manager._bot_instances.get(bot_id)
         if not bot:
-            logger.error(f"Bot '{bot_id}' not found in bot_manager")
-            return False
+            return
 
-        # 创建绑定该 bot 的回调
-        async def callback(session_id: str, message: dict):
-            await self._handle_bot_message(bot_id, session_id, message)
+        await bot.stop()
 
-        bot.on("msg", callback)
-        logger.info(f"Registered bot to router: {bot_id} ({bot.__class__.__name__})")
-        return True
+        # 取消任务
+        task = self._bot_tasks.get(bot_id)
+        if task and not task.done():
+            task.cancel()
+            try:
+                await task
+            except asyncio.CancelledError:
+                pass
 
-    def get_bot(self, bot_id: str) -> Bot | None:
-        """获取指定 bot_id 的 Bot 实例"""
-        return bot_manager.get_bot(bot_id)
+        bot_manager._bot_instances.pop(bot_id, None)
+        self._bot_tasks.pop(bot_id, None)
+        logger.info(f"Stopped bot: {bot_id}")
 
-    # ========== 消息处理 ==========
+    async def stop_all(self):
+        """停止所有 Bot"""
+        tasks = [self.stop_bot(bot_id) for bot_id in list(bot_manager._bot_instances.keys())]
+        await asyncio.gather(*tasks, return_exceptions=True)
 
-    async def _handle_bot_message(self, bot_id: str, session_id: str, message_data: dict) -> bool:
+    async def handle_message(self, bot_id: str, session_id: str, message_data: dict) -> bool:
         """处理 Bot 发来的消息
+
+        这是 Bot 收到消息后应该调用的入口方法。
 
         Args:
             bot_id: Bot 的唯一标识
             session_id: 会话ID
-            message_data: 原始消息数据
+            message_data: 原始消息数据，包含 content, sender_id, sender_name, msg_type 等
 
         Returns:
             bool: 消息是否被完全处理
         """
-        bot = bot_manager.get_bot(bot_id)
-        if not bot:
-            logger.error(f"Bot '{bot_id}' not found")
-            return False
-
         # 通过 SessionManager 获取或创建会话
         session = await self._session_manager.get_or_create_session(bot_id, session_id)
 
@@ -98,7 +110,7 @@ class MessageRouter:
             )
 
             content_preview = message.content[:50] + "..." if len(message.content) > 50 else message.content
-            logger.debug(f"[Router] Routing message: bot={bot_id}, session={session_id}, sender={message.sender_name}, content='{content_preview}'")
+            logger.info(f"[Router] Routing message: bot={bot_id}, session={session_id}, sender={message.sender_name}, content='{content_preview}'")
             result = await session.handle_message(message)
             return result
         finally:

@@ -3,12 +3,12 @@
 通过 WebSocket 与 ntqq 通信的 Bot 实现。
 - 启动反向 WebSocket 服务端，等待 ntqq 主动连接
 - 支持请求-响应模式（send 方法等待返回）
-- 支持消息通知模式（emit 事件）
+- 收到消息时调用 on_message 路由到插件系统
 """
 import asyncio
 import json
 import uuid
-from typing import Callable, Dict, Any
+from typing import Dict, Any
 from loguru import logger
 
 import websockets
@@ -96,10 +96,6 @@ class NTQQBot(Bot):
         finally:
             self._pending_requests.pop(request_id, None)
 
-    def _on_handler_error(self, event_name: str, handler: Callable, error: Exception):
-        """处理回调错误"""
-        logger.error(f"Handler error for event '{event_name}': {error}")
-
     async def handle_ntqq_connection(self, websocket: WebSocketServerProtocol, path: str):
         """处理 ntqq WebSocket 连接
 
@@ -113,7 +109,7 @@ class NTQQBot(Bot):
             return
 
         self._websocket = websocket
-        logger.success(f"NTQQ 已连接: {websocket.remote_address}")
+        logger.info(f"NTQQ 已连接: {websocket.remote_address}")
 
         try:
             async for message in websocket:
@@ -182,8 +178,8 @@ class NTQQBot(Bot):
 
         logger.debug(f"NTQQ message [{session_id}/{user_id}]: {message_content[:50]}")
 
-        # 触发 msg 事件
-        await self.emit("msg", session_id, message)
+        # 调用 on_message 将消息路由到插件系统
+        await self.on_message(session_id, message)
 
     def _extract_message_content(self, message: list | str) -> str:
         """提取消息内容
@@ -221,7 +217,7 @@ class NTQQBot(Bot):
             self.port,
         )
 
-        logger.success(f"NTQQ Bot 反向 WebSocket 服务端已启动")
+        logger.info(f"NTQQ Bot 反向 WebSocket 服务端已启动")
         logger.info(f"监听地址: ws://{self.host}:{self.port}")
         logger.info("等待 ntqq 主动连接...\n")
 

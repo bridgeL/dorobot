@@ -66,7 +66,7 @@ class Session:
             raise PluginActivationError(
                 f"会话中不存在第 {layer_id} 层"
             )
-        result = layer.activate_plugin(plugin_name, silent=silent)
+        result = layer.activate_plugin(plugin_name, self.session_id, silent=silent)
         if result:
             # 调用插件的 on_activate 方法
             plugin = plugin_manager.get_plugin(plugin_name)
@@ -75,11 +75,6 @@ class Session:
                     await plugin.on_activate()
                 except Exception as e:
                     logger.error(f"Plugin {plugin_name} on_activate failed: {e}")
-
-            if not silent:
-                logger.success(
-                    f"Plugin {plugin_name} activated in session {self.session_id}, layer {layer_id}"
-                )
         return result
 
     def deactivate_plugin(self, plugin_name: str, layer_id: int) -> bool:
@@ -100,11 +95,7 @@ class Session:
             raise PluginDeactivationError(
                 f"会话中不存在第 {layer_id} 层"
             )
-        result = layer.deactivate_plugin(plugin_name)
-        if result:
-            logger.info(
-                f"Plugin {plugin_name} deactivated in session {self.session_id}"
-            )
+        result = layer.deactivate_plugin(plugin_name, self.session_id)
         return result
 
     def deactivate_all_plugins(self):
@@ -154,7 +145,7 @@ class Session:
                         active_plugins.append(plugin)
                     else:
                         logger.warning(
-                            f"[Session] Plugin '{name}' is activated but not found in registry"
+                            f"[Session] Plugin({name}) is activated but not found in registry"
                         )
 
                 if not active_plugins:
@@ -169,12 +160,12 @@ class Session:
                     plugin_name = list(active_plugin_names)[i]
                     if isinstance(result, Exception):
                         logger.error(
-                            f"[Session] Plugin '{plugin_name}' raised exception: {result}"
+                            f"[Session] Plugin({plugin_name}) raised exception: {result}"
                         )
                         continue
                     if result is False:
-                        logger.info(
-                            f"[Session] Plugin '{plugin_name}' blocked message at layer {layer.layer_id}"
+                        logger.debug(
+                            f"[Session] Plugin({plugin_name}) blocked message at layer {layer.layer_id}"
                         )
                         return False
 

@@ -12,13 +12,12 @@ class EchoPlugin(Plugin):
 
     async def on_activate(self):
         self.activation_count = 0
-        logger.info(f"Echo plugin activated")
 
     async def handle_message(self, message: Message) -> bool:
         self.activation_count += 1
         await self.send_message(f"[Echo] {message.content}")
-        return True  # 继续传递
-
+        return False # 停止传递，测试使用  
+    
 
 @register_plugin("game", layer=2, description="游戏插件：简单的猜数字游戏")
 class GamePlugin(Plugin):
@@ -27,7 +26,6 @@ class GamePlugin(Plugin):
     async def on_activate(self):
         self.target_number = 42
         self.guesses = []
-        logger.info(f"Game plugin activated, target number: {self.target_number}")
         await self.send_message("游戏开始！请输入一个 0-99 的数字来猜数。")
 
     async def handle_message(self, message: Message) -> bool:
@@ -44,7 +42,7 @@ class GamePlugin(Plugin):
                 await self.send_message(
                     f"[Game] 恭喜你猜对了！答案是 {self.target_number}"
                 )
-                logger.success(
+                logger.info(
                     f"Number guessed! Answer was {self.target_number}, {len(self.guesses)} attempts"
                 )
                 self.target_number = (self.target_number + 13) % 100  # 换一个新数字
@@ -59,9 +57,6 @@ class GamePlugin(Plugin):
 @register_plugin("hello", layer=1, description="问候插件")
 class HelloPlugin(Plugin):
     """1层插件示例 - 问候（命令层，共享）"""
-
-    async def on_activate(self):
-        logger.info(f"Hello plugin activated")
 
     async def handle_message(self, message: Message) -> bool:
         if "你好" in message.content or "hello" in message.content.lower():

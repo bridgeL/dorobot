@@ -65,7 +65,7 @@ class SessionManager:
         key = self._make_key(bot_id, session_id)
         if key not in self._sessions:
             self._sessions[key] = Session(session_id, bot_id)
-            logger.info(f"Created new session: {key}")
+            logger.debug(f"Created new session: {key}")
             # 自动激活 0层、1层、3层的所有插件
             await self._auto_activate_shared_plugins(self._sessions[key])
         return self._sessions[key]

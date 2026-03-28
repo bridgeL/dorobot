@@ -7,9 +7,9 @@ from .session_manager import SessionManager, session_manager
 from .plugin_manager import PluginManager, plugin_manager, register_plugin
 from .router import MessageRouter, router
 from .bot import Bot
-from .bot_manager import BotManager, bot_manager, register_bot
+from .bot_manager import BotManager, bot_manager
 from .bots.console import ConsoleBot
-from .utils import init_logging, load_plugins
+from .utils import init_logging, load_plugins, register_bot, run
 from . import context
 
 # 导入内置插件
