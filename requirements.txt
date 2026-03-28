@@ -1,0 +1,4 @@
+pydantic
+websockets
+loguru
+openai

@@ -1,0 +1,91 @@
+"""插件基类定义"""
+from abc import ABC, abstractmethod
+from dataclasses import dataclass
+from typing import Optional
+from loguru import logger
+
+from . import context as ctx
+
+
+@dataclass
+class Message:
+    """消息数据类"""
+    content: str
+    sender_id: str
+    sender_name: str
+    msg_type: str = "text"  # text, image, etc.
+    raw_data: Optional[dict] = None
+
+
+class Plugin(ABC):
+    """插件基类
+
+    所有插件必须继承此类并实现相关方法。
+    插件是全局独立实例，不绑定特定 session。
+    哪个 session 激活了该插件，handle_message 就接收哪个 session。
+    """
+
+    def __init__(self, name: str, layer: int = 2):
+        """初始化插件
+
+        Args:
+            name: 插件名称，唯一标识
+            layer: 碰撞层，默认2层（应用层，独占）
+        """
+        self.name = name
+        self.layer = layer
+
+    @abstractmethod
+    async def handle_message(self, message: Message) -> bool:
+        """处理消息
+
+        Args:
+            message: 消息对象
+
+        Returns:
+            bool: True表示继续传递消息到下一层，False表示中断传递
+        """
+        pass
+
+    def get_session(self):
+        """获取当前 Session 对象
+
+        插件可以通过此方法获取当前会话，读写 session.data。
+        不在消息处理上下文中时返回 None。
+        """
+        from .session_manager import get_current_session
+        return get_current_session()
+
+    async def send_message(self, content: str, session_id: str | None = None, bot_id: str | None = None):
+        """发送消息到当前会话
+
+        通过 MessageRouter 发送消息。
+
+        Args:
+            content: 消息内容
+            session_id: 目标会话ID，None 则使用当前上下文中的 session_id
+            bot_id: Bot 的唯一标识，None 则从上下文获取
+        """
+        from .router import get_router
+
+        if bot_id is None:
+            bot_id = ctx.get_bot_id()
+
+        if not bot_id:
+            logger.warning(f"Plugin {self.name} has no bot context, cannot send message")
+            return
+
+        if session_id is None:
+            session_id = ctx.get_session_id()
+
+        if not session_id:
+            logger.warning(f"Plugin {self.name} has no session context, cannot send message")
+            return
+
+        # 通过 router 获取 bot 并发送消息
+        router = get_router()
+        bot = router.get_bot(bot_id)
+        if bot:
+            await bot.send(session_id, content)
+        else:
+            logger.warning(f"Plugin {self.name}: bot '{bot_id}' not found")
