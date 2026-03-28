@@ -2,9 +2,11 @@
 
 位于 0 层，负责处理 /插件名 格式的命令，用于激活或关闭 1 层及以上的插件。
 """
+import dorobot.context as ctx
 from dorobot.plugin import Plugin, Message
 from dorobot.plugin_manager import register_plugin, plugin_manager
 from dorobot.layer import PluginActivationError, PluginDeactivationError
+from dorobot.bot_manager import bot_manager
 
 
 @register_plugin("meta", layer=0, description="Meta插件：管理其他插件的激活/关闭")
@@ -18,7 +20,6 @@ class MetaPlugin(Plugin):
 
     def __init__(self, name: str = "meta", layer: int = 0, description: str = ""):
         super().__init__(name, layer, description)
-        self._excluded_commands = {"/session"}
 
     async def handle_message(self, message: Message) -> bool:
         """处理消息
@@ -37,10 +38,8 @@ class MetaPlugin(Plugin):
         if not content.startswith("/"):
             return True
 
-        # 跳过系统命令
+        # 提取命令
         cmd_base = content.split()[0].lower()
-        if cmd_base in self._excluded_commands:
-            return True
 
         # /plugins 命令：展示所有层级插件
         if cmd_base == "/plugins":
@@ -66,6 +65,15 @@ class MetaPlugin(Plugin):
         # 获取插件元数据
         meta = plugin_manager.get_plugin_metadata(plugin_name)
         layer_id = meta.get("layer", 0) if meta else 0
+        bots = meta.get("bots") if meta else None
+
+        # 检查插件是否允许当前 Bot 类型
+        current_bot_id = ctx.get_bot_id()
+        current_bot = bot_manager.get_bot(current_bot_id) if current_bot_id else None
+        if bots is not None and current_bot is not None:
+            if not any(isinstance(current_bot, bot_type) for bot_type in bots):
+                await self.send_message(f"⚠️ 插件 {plugin_name} 不适用于当前 Bot 类型")
+                return False
 
         # 0 层插件默认开启且无法关闭
         if layer_id == 0:
@@ -103,6 +111,10 @@ class MetaPlugin(Plugin):
         if not session:
             return
 
+        # 获取当前 Bot 实例
+        current_bot_id = ctx.get_bot_id()
+        current_bot = bot_manager.get_bot(current_bot_id) if current_bot_id else None
+
         # 获取所有已注册的插件
         all_plugins = plugin_manager.list_plugins()
 
@@ -112,6 +124,12 @@ class MetaPlugin(Plugin):
             meta = plugin_manager.get_plugin_metadata(name)
             layer = meta.get("layer", 0) if meta else 0
             desc = meta.get("description", "") if meta else ""
+            bots = meta.get("bots") if meta else None
+
+            # 检查插件是否允许当前 Bot 类型
+            if bots is not None and current_bot is not None:
+                if not any(isinstance(current_bot, bot_type) for bot_type in bots):
+                    continue  # 跳过不适用于当前 Bot 的插件
 
             if layer not in layers:
                 layers[layer] = []
