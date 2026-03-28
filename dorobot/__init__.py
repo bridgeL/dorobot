@@ -8,7 +8,7 @@ from .plugin_manager import PluginManager, plugin_manager, register_plugin
 from .router import MessageRouter, router
 from .bot import Bot
 from .bot_manager import BotManager, bot_manager, register_bot
-from .bots.console_bot import ConsoleBot
+from .bots.console import ConsoleBot
 from .utils import init_logging, load_plugins
 from . import context
 

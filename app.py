@@ -20,7 +20,7 @@ from dorobot import (
     init_logging,
     load_plugins,
 )
-from dorobot.bots.console_bot import ConsoleBot
+from dorobot.bots.console import ConsoleBot
 
 # 初始化日志
 init_logging(level="DEBUG")
