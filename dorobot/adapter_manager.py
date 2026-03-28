@@ -18,4 +18,17 @@ class AdapterManager:
 
         return True
 
+    async def start_all(self):
+        tasks = []
+        for name, adapter in self._adapters.items():
+            tasks.append(self._start_adapter_safe(name, adapter))
+        await asyncio.gather(*tasks, return_exceptions=True)
+
+    async def _start_adapter_safe(self, name: str, adapter: Adapter):
+        try:
+            await adapter.start()
+        except Exception as e:
+            logger.error(f"Adapter {name} failed to start: {e}")
+
+
 adapter_manager = AdapterManager()
