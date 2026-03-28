@@ -123,30 +123,28 @@ class NTQQBot(Bot):
 
         if session_id.startswith("ntqq.group."):
             group_id = session_id[11:]
-            action = "send_group_msg"
-            msg = {
-                "group_id": group_id,
-                "message": [{"type": "text", "data": {"text": content}}],
-            }
+            await self.send_group(group_id, content)
         elif session_id.startswith("ntqq.private."):
             user_id = session_id[13:]
-            action = "send_private_msg"
-            msg = {
-                "user_id": user_id,
-                "message": [{"type": "text", "data": {"text": content}}],
-            }
+            await self.send_private(user_id, content)
         else:
             logger.error(f"未知的会话类型: {session_id}")
-            return
-
-        await self.send_ws(action, msg)
-        logger.info(f"[Bot] {self.self_id} -> {session_id}: {content}")
 
     async def send_group(self, group_id: str, content: str):
-        await self.send(f"ntqq.group.{group_id}", content)
+        msg = {
+            "group_id": group_id,
+            "message": [{"type": "text", "data": {"text": content}}],
+        }
+        await self.send_ws("send_group_msg", msg)
+        logger.info(f"[Bot] {self.self_id} -> ntqq.group.{group_id}: {content}")
 
     async def send_private(self, user_id: str, content: str):
-        await self.send(f"ntqq.private.{user_id}", content)
+        msg = {
+            "user_id": user_id,
+            "message": [{"type": "text", "data": {"text": content}}],
+        }
+        await self.send_ws("send_private_msg", msg)
+        logger.info(f"[Bot] {self.self_id} -> ntqq.private.{user_id}: {content}")
 
     async def handle_message(self, data: dict):
         if "echo" in data:
