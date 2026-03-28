@@ -74,14 +74,6 @@ def load_plugins(plugins_dir: str | Path | None = None, package: str = "plugins"
     return loaded
 
 
-def init_plugins():
-    """初始化所有已加载插件的单例实例
-
-    由于插件在注册时已自动实例化，此函数现在为空，仅保留兼容性。
-    """
-    pass
-
-
 def run():
     """启动 DoroBot，阻塞直到收到 KeyboardInterrupt"""
     from .adapter_manager import adapter_manager

@@ -83,36 +83,6 @@ class SessionManager:
         """
         return list(self._sessions.keys())
 
-    async def activate_plugin(self, session_id: str, plugin_name: str, layer_id: int) -> bool:
-        """在指定会话中激活插件
-
-        Args:
-            session_id: 会话ID
-            plugin_name: 插件名称（需已注册到PluginManager）
-            layer_id: 层ID
-
-        Returns:
-            bool: 是否成功激活
-        """
-        session = self.get_session(session_id)
-        if not session:
-            logger.warning(f"Session {session_id} not found")
-            return False
-
-        # 检查插件是否已注册
-        if not plugin_manager.get_plugin(plugin_name):
-            logger.warning(f"Plugin {plugin_name} not found in registry")
-            return False
-
-        return await session.activate_plugin(plugin_name, layer_id)
-
-    def deactivate_plugin(self, session_id: str, plugin_name: str, layer_id: int) -> bool:
-        """在指定会话中关闭插件"""
-        session = self.get_session(session_id)
-        if not session:
-            return False
-        return session.deactivate_plugin(plugin_name, layer_id)
-
     def get_active_plugins(self, session_id: str) -> dict[int, list[str]]:
         """获取指定会话中激活的插件"""
         session = self.get_session(session_id)

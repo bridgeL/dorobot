@@ -147,14 +147,6 @@ class LayerPrototype:
             3: Layer.TYPE_SHARED,     # 共享层
         }
 
-    def get_layer_ids(self) -> list[int]:
-        """获取所有层ID（排序后）"""
-        return sorted(self._layers.keys())
-
-    def get_layer_type(self, layer_id: int) -> str | None:
-        """获取指定层ID的类型"""
-        return self._layers.get(layer_id)
-
     def create_layers(self) -> dict[int, Layer]:
         """根据原型创建所有 layer 实例
 

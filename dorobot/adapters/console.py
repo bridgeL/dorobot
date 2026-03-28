@@ -32,12 +32,6 @@ class ConsoleBot(Bot):
     async def send(self, session_id: str, content: str):
         logger.info(f"[Bot] {self.self_id} -> {session_id}: {content}")
 
-    async def send_group(self, group_id: str, content: str):
-        await self.send(f"console.group.{group_id}", content)
-
-    async def send_private(self, user_id: str, content: str):
-        await self.send(f"console.private.{user_id}", content)
-
     def _build_message(self, content: str, session_id: str, sender_name: str) -> dict:
         return {
             "content": content,
@@ -103,11 +97,3 @@ class ConsoleBot(Bot):
             except asyncio.CancelledError:
                 pass
         logger.info("ConsoleBot stopped")
-
-    async def run(self):
-        try:
-            await self.start()
-        except KeyboardInterrupt:
-            logger.info("Received KeyboardInterrupt")
-        finally:
-            await self.stop()

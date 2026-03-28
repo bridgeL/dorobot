@@ -18,35 +18,4 @@ class AdapterManager:
 
         return True
 
-    def list_adapters(self) -> list[str]:
-        return list(self._adapters.keys())
-
-    async def start_all(self):
-        tasks = []
-        for name, adapter in self._adapters.items():
-            tasks.append(self._start_adapter_safe(name, adapter))
-        await asyncio.gather(*tasks, return_exceptions=True)
-
-    async def _start_adapter_safe(self, name: str, adapter: Adapter):
-        try:
-            await adapter.start()
-        except Exception as e:
-            logger.error(f"Adapter {name} failed to start: {e}")
-
-    async def stop_all(self):
-        tasks = []
-        for name, adapter in self._adapters.items():
-            tasks.append(self._stop_adapter_safe(name, adapter))
-        await asyncio.gather(*tasks, return_exceptions=True)
-
-    async def _stop_adapter_safe(self, name: str, adapter: Adapter):
-        try:
-            await adapter.stop()
-        except Exception as e:
-            logger.error(f"Adapter {name} failed to stop: {e}")
-
-    def clear(self):
-        self._adapters.clear()
-
-
 adapter_manager = AdapterManager()
