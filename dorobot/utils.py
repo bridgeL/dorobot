@@ -44,6 +44,8 @@ def init_logging(
         compression="zip"  # 压缩旧日志
     )
 
+    logger.debug(f"Logging initialized with level: {level}")
+
 
 def load_plugins(plugins_dir: str | Path | None = None, package: str = "plugins"):
     """自动加载指定目录下的所有插件
