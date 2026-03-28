@@ -74,7 +74,7 @@ class Plugin(ABC):
             session_id: 目标会话ID，None 则使用当前上下文中的 session_id
             bot_id: Bot 的唯一标识，None 则从上下文获取
         """
-        from .bot_manager import bot_manager
+        from .bot_manager import get_current_bot
 
         if bot_id is None:
             bot_id = ctx.get_bot_id()
@@ -90,8 +90,8 @@ class Plugin(ABC):
             logger.warning(f"Plugin {self.name} has no session context, cannot send message")
             return
 
-        # 从 bot_manager 获取 bot 并发送消息
-        bot = bot_manager.get_bot(bot_id)
+        # 从当前上下文获取 bot 并发送消息
+        bot = get_current_bot()
         if bot:
             await bot.send(session_id, content)
         else:

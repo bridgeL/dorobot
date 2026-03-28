@@ -8,6 +8,21 @@ import asyncio
 from loguru import logger
 
 from dorobot.bot import Bot
+import dorobot.context as ctx
+
+
+def get_current_bot() -> Optional[Bot]:
+    """获取当前上下文中的 Bot
+
+    在消息处理过程中，插件可以通过此函数获取当前 Bot 实例。
+
+    Returns:
+        Bot | None: 当前 Bot 实例，不在消息处理上下文中则返回 None
+    """
+    bot_id = ctx.bot_id.get()
+    if not bot_id:
+        return None
+    return bot_manager.get_bot(bot_id)
 
 
 class BotManager:
@@ -172,21 +187,3 @@ class BotManager:
 
 # 全局 BotManager 实例
 bot_manager = BotManager()
-
-
-def register_bot(name: str | None = None, auto_start: bool = True, **kwargs):
-    """装饰器：注册 Bot 类
-
-    使用示例：
-        @register_bot(auto_start=True)
-        class ConsoleBot(Bot):
-            def __init__(self):
-                super().__init__(self_id="console")
-
-        # 在其他地方获取 Bot 实例
-        console = bot_manager.get_bot("console")
-    """
-    def decorator(cls):
-        bot_manager.register(name, cls, auto_start=auto_start, **kwargs)
-        return cls
-    return decorator
