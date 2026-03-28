@@ -87,7 +87,7 @@ class NTQQBot(Bot):
         self._websocket: ServerConnection | None = None
         self._pending_requests: Dict[str, asyncio.Future] = {}
 
-    async def send_ws(self, action: str, params: dict | None = None, timeout: float = 5.0) -> dict | None:
+    async def call_api(self, action: str, data: dict | None = None, timeout: float = 5.0) -> dict | None:
         if not self._websocket:
             logger.error(f"[Bot] {self.self_id} 未连接，无法发送消息")
             return None
@@ -98,7 +98,7 @@ class NTQQBot(Bot):
 
         message = {
             "action": action,
-            "params": params or {},
+            "params": data or {},
             "echo": request_id,
         }
 
@@ -135,7 +135,7 @@ class NTQQBot(Bot):
             "group_id": group_id,
             "message": [{"type": "text", "data": {"text": content}}],
         }
-        await self.send_ws("send_group_msg", msg)
+        await self.call_api("send_group_msg", msg)
         logger.info(f"[Bot] {self.self_id} -> ntqq.group.{group_id}: {content}")
 
     async def send_private(self, user_id: str, content: str):
@@ -143,7 +143,7 @@ class NTQQBot(Bot):
             "user_id": user_id,
             "message": [{"type": "text", "data": {"text": content}}],
         }
-        await self.send_ws("send_private_msg", msg)
+        await self.call_api("send_private_msg", msg)
         logger.info(f"[Bot] {self.self_id} -> ntqq.private.{user_id}: {content}")
 
     async def handle_message(self, data: dict):
