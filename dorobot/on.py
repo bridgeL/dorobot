@@ -8,13 +8,12 @@ from dorobot.plugin_manager import register_plugin
 from dorobot.config import config
 
 
-def on_command(cmd: str, description: str = "", layer: int = 1, name: str | None = None, active: bool = True):
+def on_command(cmd: str, description: str = "", layer: int = 1, name: str | None = None, scope: str | None = None, active: bool = True):
     """快速创建命令插件的装饰器
 
     使用示例：
         @on_command("echo")
         async def handle(message: Message, plugin: Plugin, args: str):
-            '''回声插件'''
             await plugin.send_message(args)
 
     Args:
@@ -22,6 +21,7 @@ def on_command(cmd: str, description: str = "", layer: int = 1, name: str | None
         description: 插件描述，默认为函数注释第一行
         layer: 所属层级，默认 1
         name: 插件名称，默认使用函数名
+        scope: 生效范围，None=全部, "private"=仅私聊, "group"=仅群聊
         active: 是否默认激活，默认 True
     """
     prefix = config.cmd_prefix
@@ -31,7 +31,7 @@ def on_command(cmd: str, description: str = "", layer: int = 1, name: str | None
         plugin_name = name if name is not None else func.__name__
         desc = description if description else (func.__doc__ or "").strip().split("\n")[0]
 
-        @register_plugin(plugin_name, layer=layer, description=desc, active=active)
+        @register_plugin(plugin_name, layer=layer, description=desc, scope=scope, active=active)
         class _CommandPlugin(Plugin):
             async def handle_message(self, message: Message) -> bool:
                 stripped = message.content.strip()
@@ -45,31 +45,27 @@ def on_command(cmd: str, description: str = "", layer: int = 1, name: str | None
     return decorator
 
 
-def on_keyword(keyword: str, description: str = "", layer: int = 1, name: str | None = None, active: bool = True):
+def on_keyword(keyword: str, description: str = "", layer: int = 1, name: str | None = None, scope: str | None = None, active: bool = True):
     """快速创建关键词插件的装饰器
 
     使用示例：
-        @on_keyword("hello", "问候插件")
+        @on_keyword("hello")
         async def handle(message: Message, plugin: Plugin):
-            await plugin.send_message(f"你好，{message.sender_name}！")
-
-        # 或指定插件名
-        @on_keyword("hello", "问候插件", name="my_greeting")
-        async def handle(message: Message, plugin: Plugin):
-            await plugin.send_message(f"你好，{message.sender_name}！")
+            await plugin.send_message("你好！")
 
     Args:
         keyword: 关键词，消息包含该关键词时触发
-        description: 插件描述
+        description: 插件描述，默认为函数注释第一行
         layer: 所属层级，默认 1
         name: 插件名称，默认使用函数名
+        scope: 生效范围，None=全部, "private"=仅私聊, "group"=仅群聊
         active: 是否默认激活，默认 True
     """
     def decorator(func: Callable[[Message, Plugin], Any]):
         plugin_name = name if name is not None else func.__name__
         desc = description if description else (func.__doc__ or "").strip().split("\n")[0]
 
-        @register_plugin(plugin_name, layer=layer, description=desc, active=active)
+        @register_plugin(plugin_name, layer=layer, description=desc, scope=scope, active=active)
         class _KeywordPlugin(Plugin):
             async def handle_message(self, message: Message) -> bool:
                 if keyword.lower() in message.content.lower():
@@ -81,24 +77,20 @@ def on_keyword(keyword: str, description: str = "", layer: int = 1, name: str | 
     return decorator
 
 
-def on_pattern(pattern: str, description: str = "", layer: int = 1, name: str | None = None, active: bool = True):
+def on_pattern(pattern: str, description: str = "", layer: int = 1, name: str | None = None, scope: str | None = None, active: bool = True):
     """快速创建正则匹配插件的装饰器
 
     使用示例：
-        @on_pattern(r"^/echo (.+)$", "回声插件")
-        async def handle(message: Message, plugin: Plugin, match: Match[str]):
-            await plugin.send_message(match.group(1))
-
-        # 或指定插件名
-        @on_pattern(r"^/echo (.+)$", "回声插件", name="my_echo")
-        async def handle(message: Message, plugin: Plugin, match: Match[str]):
+        @on_pattern(r"^/echo (.+)$")
+        async def handle(message: Message, plugin: Plugin, match):
             await plugin.send_message(match.group(1))
 
     Args:
         pattern: 正则表达式字符串
-        description: 插件描述
+        description: 插件描述，默认为函数注释第一行
         layer: 所属层级，默认 1
         name: 插件名称，默认使用函数名
+        scope: 生效范围，None=全部, "private"=仅私聊, "group"=仅群聊
         active: 是否默认激活，默认 True
     """
     import re
@@ -109,7 +101,7 @@ def on_pattern(pattern: str, description: str = "", layer: int = 1, name: str | 
         desc = description if description else (func.__doc__ or "").strip().split("\n")[0]
         compiled = re.compile(pattern)
 
-        @register_plugin(plugin_name, layer=layer, description=desc, active=active)
+        @register_plugin(plugin_name, layer=layer, description=desc, scope=scope, active=active)
         class _PatternPlugin(Plugin):
             async def handle_message(self, message: Message) -> bool:
                 match = compiled.match(message.content.strip())
@@ -122,27 +114,28 @@ def on_pattern(pattern: str, description: str = "", layer: int = 1, name: str | 
     return decorator
 
 
-def on_message(description: str = "", layer: int = 3, name: str | None = None, active: bool = True):
+def on_message(description: str = "", layer: int = 3, name: str | None = None, scope: str | None = None, active: bool = True):
     """快速创建通用消息处理插件的装饰器
 
     每次收到消息都会触发，适用于统计、监控等需要处理所有消息的场景。
 
     使用示例：
-        @on_message("消息统计")
+        @on_message()
         async def handle(message: Message, plugin: Plugin):
             print(f"收到消息: {message.content}")
 
     Args:
-        description: 插件描述
+        description: 插件描述，默认为函数注释第一行
         layer: 所属层级，默认 3（兜底层）
         name: 插件名称，默认使用函数名
+        scope: 生效范围，None=全部, "private"=仅私聊, "group"=仅群聊
         active: 是否默认激活，默认 True
     """
     def decorator(func: Callable[[Message, Plugin], Any]):
         plugin_name = name if name is not None else func.__name__
         desc = description if description else (func.__doc__ or "").strip().split("\n")[0]
 
-        @register_plugin(plugin_name, layer=layer, description=desc, active=active)
+        @register_plugin(plugin_name, layer=layer, description=desc, scope=scope, active=active)
         class _MessagePlugin(Plugin):
             async def handle_message(self, message: Message) -> bool:
                 await func(message, self)
