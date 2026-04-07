@@ -8,6 +8,10 @@ DoroBot 是一个基于分层架构的插件式聊天机器人框架。本指南
 
 ## 快速开始
 
+**前置准备：**
+
+在开始之前，推荐先阅读 [NTQQ 协议端安装指南](https://napneko.github.io/)，了解如何部署 NTQQ 协议端。部署好协议端是运行本框架的前提。
+
 **安装依赖：**
 ```bash
 pip install -r requirements.txt
