@@ -38,6 +38,7 @@ python app.py
 - [Space 持久化](#space-持久化)
 - [NTQQ 适配器与 WebSocket 服务器](#ntqq-适配器与-websocket-服务器)
 - [使用 ConsoleBot 调试](#使用-consolebot-调试)
+- [使用 AITestAdapter 调试](#使用-aitestadapter-调试)
 
 ---
 
@@ -453,4 +454,40 @@ session_id user_id content
 - 消息会经过完整的插件路由流程
 - 支持所有层级和插件切换命令（如 `/plugins`）
 - 适合快速测试插件逻辑，无需配置 NTQQ 客户端
+
+---
+
+## 使用 AITestAdapter 调试
+
+AITestAdapter 是基于 FastAPI 的 HTTP 测试服务器，支持通过 curl 命令模拟发送消息，适合 AI 自动化调试。
+
+详见 [AI 开发调试指南](ai-dev.md)。
+
+### 快速开始
+
+```bash
+# 启动测试服务器
+python test_server.py
+
+# 激活插件
+curl -X POST http://localhost:18765/activate \
+  --data-urlencode "session_id=group.test123" \
+  --data-urlencode "plugin_name=criminal_dance" \
+  --data-urlencode "layer=2"
+
+# 发送消息
+curl -X POST http://localhost:18765/msg \
+  --data-urlencode "session_id=group.test123" \
+  --data-urlencode "sender_id=user1" \
+  --data-urlencode "sender_name=用户1" \
+  --data-urlencode "content=创建房间"
+```
+
+### AI 开发飞轮
+
+```
+编写代码 → curl 测试 → 查看日志 → 修复问题 → 循环迭代
+```
+
+AITestAdapter 让 AI 可以自主完成插件开发和调试闭环，大幅提升开发效率。
 
