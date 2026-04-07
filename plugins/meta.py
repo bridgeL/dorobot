@@ -1,6 +1,6 @@
 """Meta 插件 - 用于管理其他插件的激活/关闭
 
-位于 0 层，负责处理 /插件名 格式的命令，用于激活或关闭 1 层及以上的插件。
+位于 0 层，负责处理 /meta 插件名 格式的命令，用于激活或关闭 1 层及以上的插件。
 """
 
 import dorobot.context as ctx
@@ -14,7 +14,7 @@ from dorobot.bot_manager import bot_manager
 class MetaPlugin(Plugin):
     """Meta 插件
 
-    处理 /插件名 格式的命令，用于激活或关闭 1 层及以上的插件。
+    处理 /meta 插件名 格式的命令，用于激活或关闭 1 层及以上的插件。
     如果输入匹配到已注册的插件名，则切换其状态并终止消息传递。
     如果不匹配任何插件，则让消息继续传递到后续层级。
     """
@@ -58,8 +58,15 @@ class MetaPlugin(Plugin):
             await self._show_help()
             return False
 
-        # 提取插件名（去掉开头的 /）
-        plugin_name = content[1:].split()[0].lower()
+        # 检查是否是 /meta 插件名 格式的命令
+        if not content.lower().startswith("/meta "):
+            return True
+
+        # 提取插件名
+        parts = content.split()
+        if len(parts) < 2:
+            return True
+        plugin_name = parts[1].lower()
 
         if not plugin_name:
             return True
@@ -186,7 +193,7 @@ class MetaPlugin(Plugin):
             "  /plugins  - 显示插件层级列表",
             "",
             "【插件管理】",
-            "  /插件名   - 激活/关闭指定插件",
+            "  /meta 插件名   - 激活/关闭指定插件",
         ]
 
         lines.append("")
