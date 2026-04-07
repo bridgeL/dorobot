@@ -32,6 +32,14 @@ class ConsoleBot(Bot):
     async def send(self, session_id: str, content: str):
         logger.info(f"[Bot] {self.self_id} -> {session_id}: {content}")
 
+    async def send_group(self, group_id: str, content: str):
+        """发送群消息"""
+        logger.info(f"[Bot] {self.self_id} -> group.{group_id}: {content}")
+
+    async def send_private(self, user_id: str, content: str):
+        """发送私聊消息"""
+        logger.info(f"[Bot] {self.self_id} -> private.{user_id}: {content}")
+
     def _build_message(self, content: str, session_id: str, sender_id: str, sender_name: str) -> dict:
         # 解析 session_id 判断类型
         # 格式: group.123456 或 private.10001

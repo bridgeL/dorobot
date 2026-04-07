@@ -21,11 +21,12 @@ class Bot(ABC):
         """发送消息到指定会话
 
         Args:
-            session_id: 会话唯一标识，格式为 "group_{group_id}" 或 "private_{user_id}"
+            session_id: 会话唯一标识
             content: 消息内容
         """
         pass
 
+    @abstractmethod
     async def send_group(self, group_id: str, content: str):
         """发送群消息
 
@@ -33,8 +34,9 @@ class Bot(ABC):
             group_id: 群组ID
             content: 消息内容
         """
-        await self.send(f"g_{group_id}", content)
+        pass
 
+    @abstractmethod
     async def send_private(self, user_id: str, content: str):
         """发送私聊消息
 
@@ -42,7 +44,7 @@ class Bot(ABC):
             user_id: 用户ID
             content: 消息内容
         """
-        await self.send(f"p_{user_id}", content)
+        pass
 
     async def on_message(self, session_id: str, message_data: dict):
         """处理收到的消息

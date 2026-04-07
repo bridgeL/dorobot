@@ -370,6 +370,21 @@ class CriminalDancePlugin(Plugin):
 
     # ==================== 游戏通知回调 ====================
 
+    async def _send_private(self, user_id: str, content: str):
+        """发送私聊消息给指定用户"""
+        from dorobot.bot_manager import bot_manager
+        bot_id = ctx.get_bot_id()
+        if not bot_id:
+            logger.warning(f"Plugin {self.name} has no bot context, cannot send private message")
+            return
+        bot = bot_manager.get_bot(bot_id)
+        if bot and hasattr(bot, 'send_private'):
+            await bot.send_private(user_id, content)
+        else:
+            # Fallback to group message if send_private not available
+            logger.warning(f"Bot {bot_id} does not support send_private, falling back to group message")
+            await self.send_message(content)
+
     async def notify_game(self, msg, target_player=None):
         """游戏通知回调"""
         session = self.get_session()
@@ -386,19 +401,20 @@ class CriminalDancePlugin(Plugin):
             if msg_type == "hand_card" and isinstance(msg_content, dict):
                 # 私聊手牌
                 cards = msg_content.get("cards", [])
-                player_id = msg_content.get("player_id")
                 num_players = msg_content.get("num_players", 0)
 
-                # 找到对应的玩家发送私聊
+                # 通过 target_player 获取玩家名字和ID
+                player_name = target_player.player_name if target_player else "未知玩家"
+                player_id = target_player.player_id if target_player else ""
+
                 cards_text = "\n".join(f"{i+1}. {c['name']} - {c['desc']}" for i, c in enumerate(cards))
                 text = (
                     f"🎴 你的手牌 ({num_players}人局)\n"
                     f"{cards_text}\n\n"
                     f"轮到你时发送: 出牌 牌名 [@目标]"
                 )
-                # 这里需要私聊发送，但当前框架可能只支持群发
-                # 先群发，后续可改进为私聊
-                await self.send_message(f"[私聊] @{player_name}\n{text}")
+                # 发送私聊消息
+                await self._send_private(player_id, text)
             elif msg_type == "text":
                 await self.send_message(str(msg_content))
             else:
