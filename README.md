@@ -17,6 +17,11 @@ DoroBot 是一个基于分层架构的插件式聊天机器人框架。本指南
 pip install -r requirements.txt
 ```
 
+**配置：**
+```bash
+cp .env.example .env
+```
+
 **启动机器人：**
 ```bash
 python app.py
