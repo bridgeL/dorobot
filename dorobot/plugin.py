@@ -6,7 +6,6 @@ from typing import Optional
 from loguru import logger
 
 import dorobot.context as ctx
-from dorobot.space import Space
 
 
 @dataclass

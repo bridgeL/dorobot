@@ -8,29 +8,23 @@ from dorobot.plugin_manager import register_plugin
 from dorobot.config import config
 
 
-def on_command(cmd: str, prefix: str = "", description: str = "", layer: int = 1, name: str | None = None, active: bool = True):
-    if not prefix:
-        prefix = config.cmd_prefix
+def on_command(cmd: str, description: str = "", layer: int = 1, name: str | None = None, active: bool = True):
     """快速创建命令插件的装饰器
 
     使用示例：
-        @on_command("echo", "/", "回声插件")
+        @on_command("echo")
         async def handle(message: Message, plugin: Plugin, args: str):
-            await plugin.send_message(args)
-
-        # 或指定插件名
-        @on_command("echo", "/", "回声插件", name="my_echo")
-        async def handle(message: Message, plugin: Plugin, args: str):
+            '''回声插件'''
             await plugin.send_message(args)
 
     Args:
         cmd: 命令字符串，如 "echo"
-        prefix: 命令前缀，默认 "/"
-        description: 插件描述
+        description: 插件描述，默认为函数注释第一行
         layer: 所属层级，默认 1
         name: 插件名称，默认使用函数名
         active: 是否默认激活，默认 True
     """
+    prefix = config.cmd_prefix
     full_cmd = f"{prefix}{cmd}"
 
     def decorator(func: Callable[[Message, Plugin, str], Any]):
