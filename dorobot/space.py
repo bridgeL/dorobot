@@ -8,27 +8,29 @@ class Space(dict):
     """分层命名空间
 
     继承自 dict，支持键值存储。
-    命名规则：使用 `.` 分隔层级，如 `user.profile` 对应 `space/user/profile.json`。
+    初始化时传入多个名称，如 Space("a", "b", "c") 对应 a/b/c.json。
     """
 
     _instances: dict[str, "Space"] = {}
 
-    def __new__(cls, name: str):
+    def __new__(cls, *names: str):
         """单例模式：同名 name 返回已有实例"""
-        if name in cls._instances:
-            return cls._instances[name]
+        key = "/".join(names)
+        if key in cls._instances:
+            return cls._instances[key]
         instance = super().__new__(cls)
-        cls._instances[name] = instance
+        cls._instances[key] = instance
         return instance
 
-    def __init__(self, name: str):
+    def __init__(self, *names: str):
         """初始化空间
 
         Args:
-            name: 空间名称，使用 `.` 分隔层级，如 `user.profile`
+            *names: 空间路径部分，如 Space("a", "b", "c") -> space/a/b/c.json
         """
         super().__init__()
-        self._name = name
+        self._names = names
+        self._key = "/".join(names)
         self._dirty = False
         # 自动注册到 manager
         from dorobot.space_manager import space_manager
@@ -37,7 +39,7 @@ class Space(dict):
 
     @property
     def name(self) -> str:
-        return self._name
+        return self._key
 
     @property
     def dirty(self) -> bool:
@@ -73,12 +75,11 @@ class Space(dict):
         self.mark_dirty()
 
     def path(self) -> str:
-        """获取文件路径，将 `.` 转换为 `/`，末尾加 `.json`
+        """获取文件路径
 
-        例如 `user.profile` -> `space/user/profile.json`
+        例如 Space("a", "b", "c") -> space/a/b/c.json
         """
-        parts = self._name.split(".")
-        return str(Path("space") / "/".join(parts)) + ".json"
+        return str(Path("space") / "/".join(self._names)) + ".json"
 
     def load(self):
         """从磁盘加载数据"""
@@ -107,4 +108,4 @@ class Space(dict):
             pass
 
     def __repr__(self) -> str:
-        return f"Space({self._name!r})"
+        return f"Space({self._names!r})"

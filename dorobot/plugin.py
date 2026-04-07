@@ -126,6 +126,3 @@ class Plugin(ABC):
             await bot.send(session_id, content)
         else:
             logger.warning(f"Plugin {self.name}: bot '{bot_id}' not found")
-
-    def get_session_space(self):
-        return Space(ctx.get_session_id())

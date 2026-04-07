@@ -12,7 +12,7 @@ from dorobot.bot_manager import BotManager, bot_manager
 from dorobot.adapter_manager import AdapterManager, adapter_manager
 from dorobot.utils import init_logging, load_plugins, run, init_space
 from dorobot import context as ctx
-from dorobot.on import on_command, on_keyword, on_pattern
+from dorobot.on import on_command, on_keyword, on_pattern, on_message
 from dorobot.space import Space
 from dorobot.space_manager import SpaceManager, space_manager
 from loguru import logger

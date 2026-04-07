@@ -35,9 +35,9 @@ class SpaceManager:
 
         for json_path in space_dir.rglob("*.json"):
             rel_path = json_path.relative_to(space_dir)
-            # 将路径转回 name：a/b/c.json -> a.b.c
-            name = str(rel_path)[:-5].replace("/", ".")
-            Space(name)  # 单例获取或创建
+            # 将路径转回 names：a/b/c.json -> ("a", "b", "c")
+            name_parts = tuple(str(rel_path)[:-5].split("/"))
+            Space(*name_parts)  # 单例获取或创建
 
     async def _scan_loop(self):
         """定期扫描并保存 dirty 的 Space"""
