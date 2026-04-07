@@ -1,13 +1,18 @@
 """多插件聊天机器人 - 启动入口"""
+
 from dorobot import init_logging, load_plugins, run, register_adapter
-from dorobot.adapters.console import ConsoleAdapter
-from dorobot.adapters.ntqq import NTQQAdapter
 
 init_logging(level="DEBUG")
 
 load_plugins()
 
-register_adapter(ConsoleAdapter())
-register_adapter(NTQQAdapter())
+# 命令行调试
+# from dorobot.adapters.console import ConsoleAdapter
+# register_adapter(ConsoleAdapter())
+
+# NTQQ
+from dorobot.adapters.ntqq import NTQQAdapter
+
+register_adapter(NTQQAdapter(port=8082))
 
 run()
