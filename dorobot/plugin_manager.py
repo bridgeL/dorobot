@@ -67,7 +67,7 @@ class PluginManager:
         """获取插件元数据"""
         plugin = self._plugin_instances.get(name)
         if plugin:
-            return {"layer": plugin.layer, "description": plugin.description, "bots": plugin.bots}
+            return {"layer": plugin.layer, "description": plugin.description, "bots": plugin.bots, "scope": plugin.scope}
         return None
 
     def list_plugins(self) -> list[str]:
@@ -88,7 +88,7 @@ class PluginManager:
 plugin_manager = PluginManager()
 
 
-def register_plugin(name: str, layer: int = 0, description: str = "", bots: list[type] | None = None, active: bool = True):
+def register_plugin(name: str, layer: int = 0, description: str = "", bots: list[type] | None = None, scope: str | None = None, active: bool = True):
     """装饰器：注册插件类
 
     使用示例：
@@ -103,12 +103,12 @@ def register_plugin(name: str, layer: int = 0, description: str = "", bots: list
         layer: 碰撞层，默认0层
         description: 插件描述
         bots: 允许使用该插件的 Bot 类型列表
+        scope: 生效范围，None=全部, "private"=仅私聊, "group"=仅群聊
         active: 是否默认激活，默认 True
     """
-    def decorator(cls):
+    def decorator(cls: type[Plugin]):
         # 立即创建插件实例并注册
-        instance = cls(name=name, layer=layer, description=description, bots=bots)
-        instance.default_active = active
+        instance = cls(name=name, layer=layer, description=description, bots=bots, scope=scope, default_active=active)
         plugin_manager.register(name, instance, active=active)
         return cls
     return decorator

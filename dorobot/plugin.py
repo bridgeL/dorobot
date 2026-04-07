@@ -33,6 +33,8 @@ class Plugin(ABC):
         layer: int = 2,
         description: str = "",
         bots: list[type] | None = None,
+        scope: str | None = None,
+        default_active: bool = True,
     ):
         """初始化插件
 
@@ -41,11 +43,15 @@ class Plugin(ABC):
             layer: 碰撞层，默认2层（应用层，独占）
             description: 插件描述
             bots: 允许使用该插件的 Bot 类型列表，None 表示允许所有 Bot
+            scope: 生效范围，None=全部, "private"=仅私聊, "group"=仅群聊
+            default_active: 是否默认激活，默认 True
         """
         self.name = name
         self.layer = layer
         self.description = description
         self.bots = bots
+        self.scope = scope  # None=全部, "private"=仅私聊, "group"=仅群聊
+        self.default_active = default_active
 
     @abstractmethod
     async def handle_message(self, message: Message) -> bool:
