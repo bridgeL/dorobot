@@ -1,4 +1,4 @@
 pydantic
 websockets
 loguru
-openai
+python-dotenv
