@@ -18,6 +18,12 @@ class Session:
     """会话
 
     每个会话对应一个 Session 实例。
+
+    会话隔离规则：
+    - 不同类型的 Bot 创建的 Session 必然不同
+    - 同一类型的 Bot 在同一个群/私聊中共享同一个 Session
+
+    这种设计使得单群多 Bot 成为可能：不同类型的 Bot 可以共存于同一群聊中。
     会话内有多层结构，每层可以激活多个插件。
     - 0层（meta层）：只有 meta plugin，无法关闭
     - 1层（命令层）：共享层，可激活多个插件
@@ -28,12 +34,18 @@ class Session:
     插件实例是全局共享的，通过 PluginManager 获取。
     """
 
-    def __init__(self, session_id: str):
+    def __init__(self, session_id: str, type: str = "private", group_id: str = "", user_id: str = ""):
         """
         Args:
-            session_id: 会话唯一标识（如群聊ID、频道ID）
+            session_id: 会话唯一标识
+            type: 会话类型，"group" 或 "private"
+            group_id: 群号（仅群聊有效）
+            user_id: 用户 ID
         """
         self.session_id = session_id
+        self.type = type
+        self.group_id = group_id
+        self.user_id = user_id
         # 从原型复制 layer 结构
         self._layers: dict[int, Layer] = layer_prototype.create_layers()
         # 自动激活 default_active 的插件
@@ -43,7 +55,7 @@ class Session:
         """激活所有默认激活的插件"""
         for name in plugin_manager.list_plugins():
             plugin = plugin_manager.get_plugin(name)
-            if plugin and getattr(plugin, "default_active", False):
+            if plugin and plugin.default_active and plugin.layer != 2:
                 layer = self._layers.get(plugin.layer)
                 if layer and layer.can_activate(name):
                     layer.activate_plugin(name, self.session_id, silent=True)
@@ -155,6 +167,10 @@ class Session:
                             if not any(isinstance(current_bot, bot_type) for bot_type in plugin.bots):
                                 logger.debug(f"[Session] Plugin({name}) skipped for bot type {type(current_bot).__name__}")
                                 continue
+                    # 检查插件 scope 是否匹配当前会话类型
+                    if plugin.scope is not None and plugin.scope != self.type:
+                        logger.debug(f"[Session] Plugin({name}) skipped for scope {self.type}")
+                        continue
                     active_plugins.append(plugin)
                 else:
                     logger.warning(
