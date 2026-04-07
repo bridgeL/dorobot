@@ -13,7 +13,7 @@ class Space(dict):
 
     _instances: dict[str, "Space"] = {}
 
-    def __new__(cls, *names: str):
+    def __new__(cls, *names: str, **kwargs):
         """单例模式：同名 name 返回已有实例"""
         key = "/".join(names)
         if key in cls._instances:

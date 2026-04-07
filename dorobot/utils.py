@@ -53,25 +53,16 @@ def init_logging(
     logger.debug(f"Logging initialized with level: {level}")
 
 
-def load_plugins(plugins_dir: str | Path | None = None, package: str = "plugins"):
-    """自动加载指定目录下的所有插件
+def load_plugins():
+    """自动加载插件目录下所有插件
 
-    扫描目录中的 .py 文件（排除 __ 开头），自动 import 并注册插件。
+    扫描 plugins/ 目录下的 .py 文件（排除 __ 开头），自动 import 并注册插件。
     插件在注册时会自动实例化。
-
-    Args:
-        plugins_dir: 插件目录路径，None 则使用当前工作目录下的 plugins/
-        package: 模块包名，用于 import，默认 "plugins"
 
     Returns:
         list[str]: 成功加载的插件模块名列表
     """
-
-    if plugins_dir is None:
-        plugins_dir = Path.cwd() / "plugins"
-    else:
-        plugins_dir = Path(plugins_dir)
-
+    plugins_dir = Path.cwd() / "plugins"
     if not plugins_dir.exists():
         logger.warning(f"Plugins directory not found: {plugins_dir}")
         return []
@@ -85,7 +76,7 @@ def load_plugins(plugins_dir: str | Path | None = None, package: str = "plugins"
 
     loaded = []
     for file_path in sorted(plugin_files):
-        module_name = f"{package}.{file_path.stem}"
+        module_name = f"plugins.{file_path.stem}"
         try:
             importlib.import_module(module_name)
             logger.info(f"Loaded plugin module: {file_path.name}")
