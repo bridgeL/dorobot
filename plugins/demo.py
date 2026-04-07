@@ -1,27 +1,21 @@
 """示例插件集合"""
 
-from loguru import logger
-
-from dorobot.plugin import Plugin, Message
-from dorobot.plugin_manager import register_plugin
+from dorobot import Plugin, Message, register_plugin, logger
 
 
-@register_plugin("echo", layer=3, description="回声插件：重复用户的消息")
-class EchoPlugin(Plugin):
-    """3层插件示例 - 回声（共享层，共享）"""
-
-    async def on_activate(self):
-        self.activation_count = 0
+@register_plugin("hello", layer=1, description="问候插件")
+class HelloPlugin(Plugin):
+    """1层插件示例 - 问候（共享层）"""
 
     async def handle_message(self, message: Message) -> bool:
-        self.activation_count += 1
-        await self.send_message(f"[Echo] {message.content}")
-        return False # 停止传递，测试使用  
-    
+        if "你好" in message.content or "hello" in message.content.lower():
+            await self.send_message(f"👋 你好，{message.sender_name}！")
+        return True
+
 
 @register_plugin("game", layer=2, description="游戏插件：简单的猜数字游戏")
 class GamePlugin(Plugin):
-    """2层插件示例 - 游戏（应用层，独占）"""
+    """2层插件示例 - 游戏（独占层）"""
 
     async def on_activate(self):
         self.target_number = 42
@@ -54,11 +48,14 @@ class GamePlugin(Plugin):
             return True
 
 
-@register_plugin("hello", layer=1, description="问候插件")
-class HelloPlugin(Plugin):
-    """1层插件示例 - 问候（命令层，共享）"""
+@register_plugin("echo", layer=3, description="回声插件：重复用户的消息")
+class EchoPlugin(Plugin):
+    """3层插件示例 - 回声（共享层）"""
+
+    async def on_activate(self):
+        self.activation_count = 0
 
     async def handle_message(self, message: Message) -> bool:
-        if "你好" in message.content or "hello" in message.content.lower():
-            await self.send_message(f"👋 你好，{message.sender_name}！")
-        return True
+        self.activation_count += 1
+        await self.send_message(f"[Echo] {message.content}")
+        return False  # 停止传递，测试使用
