@@ -2,6 +2,7 @@
 
 位于 0 层，负责处理 /插件名 格式的命令，用于激活或关闭 1 层及以上的插件。
 """
+
 import dorobot.context as ctx
 from dorobot.plugin import Plugin, Message
 from dorobot.plugin_manager import register_plugin, plugin_manager
@@ -18,7 +19,13 @@ class MetaPlugin(Plugin):
     如果不匹配任何插件，则让消息继续传递到后续层级。
     """
 
-    def __init__(self, name: str = "meta", layer: int = 0, description: str = "", bots: list[type] | None = None):
+    def __init__(
+        self,
+        name: str = "meta",
+        layer: int = 0,
+        description: str = "",
+        bots: list[type] | None = None,
+    ):
         super().__init__(name, layer, description, bots)
 
     async def handle_message(self, message: Message) -> bool:
@@ -147,7 +154,7 @@ class MetaPlugin(Plugin):
             if layer_id == 0:
                 layer_type = "[系统层]"
             elif layer_id == 1:
-                layer_type = "[命令层]"
+                layer_type = "[共享层]"
             elif layer_id == 2:
                 layer_type = "[应用层]"
             elif layer_id == 3:
