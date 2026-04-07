@@ -14,7 +14,6 @@ load_plugins()
 
 # NTQQ
 from dorobot.adapters.ntqq import NTQQAdapter
-
 register_adapter(NTQQAdapter(port=8082))
 
 run()

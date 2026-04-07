@@ -1,7 +1,6 @@
 import asyncio
 import json
 import uuid
-from typing import Dict
 from loguru import logger
 
 import websockets
@@ -85,7 +84,7 @@ class NTQQBot(Bot):
     def __init__(self, self_id: str = ""):
         super().__init__(self_id=self_id)
         self._websocket: ServerConnection | None = None
-        self._pending_requests: Dict[str, asyncio.Future] = {}
+        self._pending_requests: dict[str, asyncio.Future] = {}
 
     async def call_api(self, action: str, data: dict | None = None, timeout: float = 5.0) -> dict | None:
         if not self._websocket:
