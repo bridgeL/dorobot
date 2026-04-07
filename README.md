@@ -35,6 +35,7 @@ python app.py
 - [Layer 层级系统](#layer-层级系统)
 - [Plugin 插件](#plugin-插件)
 - [Meta Plugin](#meta-plugin)
+- [Space 持久化](#space-持久化)
 - [NTQQ 适配器与 WebSocket 服务器](#ntqq-适配器与-websocket-服务器)
 - [使用 ConsoleBot 调试](#使用-consolebot-调试)
 
@@ -164,7 +165,7 @@ class MyPlugin(Plugin):
         return True
 ```
 
-插件自身不应保存与特定会话相关的状态，而应将状态存储在 `session.data` 中。
+插件自身不应保存与特定会话相关的状态，而应将状态存储在 `Space` 中（详见下文）。
 
 ### 基本结构
 
@@ -210,8 +211,9 @@ class Message:
 | `handle_message(message)` | **必须实现**。处理消息，返回 `True` 继续传递，`False` 中断 |
 | `on_activate()` | 可选实现。插件激活时的初始化逻辑 |
 | `send_message(content, session_id, bot_id)` | 已有实现。发送消息到会话 |
-| `get_session()` | 已有实现。获取当前 Session 对象，读写 `session.data` |
+| `get_session()` | 已有实现。获取当前 Session 对象 |
 | `get_bot()` | 已有实现。获取当前 Bot 对象 |
+| `get_session_space()` | 已有实现。获取当前 Session 对应的 Space |
 
 ### handle_message 返回值
 
@@ -287,6 +289,52 @@ Meta 插件位于 0 层（系统保留层），是预置的管理插件。
 
 用户输入: {prefix}plugins
 结果: 显示所有插件的层级和状态
+```
+
+---
+
+## Space 持久化
+
+Space 是基于文件系统的持久化键值存储，适合存储插件的会话相关数据。
+
+### 基本用法
+
+```python
+from dorobot import Space
+
+# 存储数据
+space = Space("my_plugin", session_id)
+space["key"] = "value"
+print(space["key"])  # value
+```
+
+### 路径映射
+
+`Space(a, b, c)` 对应文件 `space/a/b/c.json`。
+
+| 示例 | 文件路径 |
+|------|----------|
+| `Space("data")` | `space/data.json` |
+| `Space("user", "123")` | `space/user/123.json` |
+| `Space("char_freq", session_id)` | `space/char_freq/{session_id}.json` |
+
+### 持久化
+
+Space 数据会自动持久化到磁盘：
+- `space_manager.init()` 在启动时加载已有数据
+- `space_manager.start()` 启动后台扫描任务，每秒检查 dirty 的 Space
+- `space_manager.stop()` 或程序退出时保存所有 dirty 的 Space
+
+### 插件中使用
+
+插件通过 `get_session_space()` 获取当前会话的 Space：
+
+```python
+class MyPlugin(Plugin):
+    async def handle_message(self, message: Message) -> bool:
+        space = self.get_session_space()
+        space["visit_count"] = space.get("visit_count", 0) + 1
+        return True
 ```
 
 ---

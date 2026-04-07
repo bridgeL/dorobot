@@ -36,7 +36,6 @@ class Session:
         self.session_id = session_id
         # 从原型复制 layer 结构
         self._layers: dict[int, Layer] = layer_prototype.create_layers()
-        self.data: dict = {}  # 会话数据存储，插件可读写
         # 自动激活 default_active 的插件
         self._activate_default_plugins()
 
