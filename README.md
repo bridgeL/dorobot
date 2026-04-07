@@ -144,6 +144,23 @@ Layer 0 → Layer 1 → Layer 2 → Layer 3
 
 ## Plugin 插件
 
+### 插件单例模式
+
+插件采用**单例模式**——全局有且仅有一个实例。当不同的 Bot 在不同的群聊中收到消息时，调用的都是同一个插件实例。
+
+插件通过上下文获取当前请求的 Bot 和 Session：
+
+```python
+class MyPlugin(Plugin):
+    async def handle_message(self, message: Message) -> bool:
+        bot = self.get_bot()      # 当前 Bot（不同群聊可能不同）
+        session = self.get_session()  # 当前 Session（不同群聊/私聊可能不同）
+        # bot 和 session 均来自调用方，而非插件自身
+        return True
+```
+
+插件自身不应保存与特定会话相关的状态，而应将状态存储在 `session.data` 中。
+
 ### 基本结构
 
 ```python
@@ -196,6 +213,52 @@ class Message:
 - 返回 `True`：消息继续传递给下一层级的插件
 - 返回 `False`：中断传递，后续层级的插件不会收到此消息
 
+### 快速创建插件
+
+框架提供了一组装饰器，用于快速创建简单插件，无需继承 `Plugin` 类：
+
+```python
+from dorobot import on_command, on_keyword, on_pattern
+```
+
+#### on_command - 命令触发
+
+以指定命令字符串触发，如 `/echo`：
+
+```python
+from dorobot import on_command, Message
+
+@on_command("/echo", "回声插件")
+async def echo(message: Message, plugin):
+    await plugin.send_message(message.content)
+```
+
+#### on_keyword - 关键词触发
+
+消息包含关键词时触发（不区分大小写）：
+
+```python
+from dorobot import on_keyword, Message
+
+@on_keyword("天气", "查询天气")
+async def weather(message: Message, plugin):
+    await plugin.send_message(f"{message.sender_name}，今天天气晴朗！")
+```
+
+#### on_pattern - 正则匹配触发
+
+匹配正则表达式时触发，可通过 `match` 对象获取捕获组：
+
+```python
+from dorobot import on_pattern, Message
+
+@on_pattern(r"^/echo (.+)$", "回声插件")
+async def echo(message: Message, plugin, match):
+    await plugin.send_message(match.group(1))
+```
+
+所有装饰器默认注册到 Layer 1（共享层），可通过 `layer` 参数指定其他层级。
+
 ---
 
 ## Meta Plugin
@@ -206,7 +269,7 @@ Meta 插件位于 0 层（系统保留层），是预置的管理插件。
 
 - `/help` - 显示帮助信息
 - `/plugins` - 显示所有层级插件列表及激活状态
-- `/插件名` - 激活或关闭指定插件
+- `/meta 插件名` - 激活或关闭指定插件
 
 ### 使用示例
 

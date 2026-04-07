@@ -48,7 +48,7 @@ class GamePlugin(Plugin):
             return True
 
 
-@register_plugin("echo", layer=3, description="回声插件：重复用户的消息")
+@register_plugin("回声", layer=3, description="回声插件：重复用户的消息")
 class EchoPlugin(Plugin):
     """3层插件示例 - 回声（共享层）"""
 
@@ -57,5 +57,5 @@ class EchoPlugin(Plugin):
 
     async def handle_message(self, message: Message) -> bool:
         self.activation_count += 1
-        await self.send_message(f"[Echo] {message.content}")
+        await self.send_message(f"[回声] {message.content}")
         return False  # 停止传递，测试使用
