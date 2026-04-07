@@ -222,7 +222,7 @@ class Game:
         elif not target:
             print("[公共消息]", msg)
         else:
-            print("[私聊消息]", f"@玩家{target.id}", msg)
+            print("[私聊消息]", f"@{target.player_name}", msg)
 
     def __str__(self):
         s = "\n".join("\t" + str(player) for player in self.players)
@@ -235,7 +235,7 @@ class BadWinMsg(Msg):
         self.bad_players = bad_players
 
     def __str__(self):
-        s = ", ".join("玩家" + str(p.id) for p in self.bad_players)
+        s = ", ".join(p.player_name for p in self.bad_players)
         return f"坏人阵营获胜：{s}"
 
 
@@ -245,7 +245,7 @@ class GoodWinMsg(Msg):
         self.bad_players = bad_players
 
     def __str__(self):
-        s = ", ".join("玩家" + str(p.id) for p in self.good_players)
+        s = ", ".join(p.player_name for p in self.good_players)
         return f"好人阵营获胜：{s}"
 
 
@@ -254,7 +254,7 @@ class YourTurnMsg(Msg):
         self.player = player
 
     def __str__(self):
-        return f"轮到玩家{self.player.id}出牌"
+        return f"轮到{self.player.player_name}出牌"
 
 
 class HandCardMsg(Msg):

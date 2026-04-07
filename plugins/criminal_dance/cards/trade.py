@@ -86,7 +86,7 @@ class TradeRejectedDuplicateCardMsg(Msg):
         self.player = player
 
     def __str__(self):
-        return f"玩家{self.player.id}已经给过要交易的牌了"
+        return f"{self.player.player_name}已经给过要交易的牌了"
 
 
 class TradeRejectedInvalidPlayerMsg(Msg):
@@ -94,7 +94,7 @@ class TradeRejectedInvalidPlayerMsg(Msg):
         self.player = player
 
     def __str__(self):
-        return f"玩家{self.player.id}不是交易的参与者"
+        return f"{self.player.player_name}不是交易的参与者"
 
 
 class TradeNoEffectMsg(Msg):
@@ -102,7 +102,7 @@ class TradeNoEffectMsg(Msg):
         self.players = players
 
     def __str__(self):
-        s = ", ".join(f"玩家{p.id}" for p in self.players)
+        s = ", ".join(p.player_name for p in self.players)
         return f"交易没有效果：{s}没有手牌"
 
 
@@ -111,7 +111,7 @@ class TradeStartHintMsg(Msg):
         self.players = players
 
     def __str__(self):
-        s = ", ".join(f"玩家{p.id}" for p in self.players)
+        s = ", ".join(p.player_name for p in self.players)
         return f"请{s}给出要交易的牌"
 
 
@@ -122,4 +122,4 @@ class TradeResultMsg(Msg):
         self.card = card
 
     def __str__(self):
-        return f"玩家{self.player.id}失去了[{self.prev_card.name}]，获得了[{self.card.name}]"
+        return f"{self.player.player_name}失去了[{self.prev_card.name}]，获得了[{self.card.name}]"

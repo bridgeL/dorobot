@@ -398,7 +398,7 @@ class CriminalDancePlugin(Plugin):
                 )
                 # 这里需要私聊发送，但当前框架可能只支持群发
                 # 先群发，后续可改进为私聊
-                await self.send_message(f"[私聊] @玩家{player_id}\n{text}")
+                await self.send_message(f"[私聊] @{player_name}\n{text}")
             elif msg_type == "text":
                 await self.send_message(str(msg_content))
             else:

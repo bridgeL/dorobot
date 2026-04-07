@@ -36,4 +36,4 @@ class RumorResultMsg(Msg):
         self.card = card
 
     def __str__(self):
-        return f"玩家{self.player.id}失去了[{self.prev_card.name}]，获得了[{self.card.name}]"
+        return f"{self.player.player_name}失去了[{self.prev_card.name}]，获得了[{self.card.name}]"

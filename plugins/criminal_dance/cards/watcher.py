@@ -22,7 +22,7 @@ class WatchNothingMsg(Msg):
         self.target = target
 
     def __str__(self):
-        return f"玩家{self.target.id}没有手牌"
+        return f"{self.target.player_name}没有手牌"
 
 
 class WatchResultMsg(Msg):
@@ -31,4 +31,4 @@ class WatchResultMsg(Msg):
 
     def __str__(self):
         hand_cards = [card.name for card in self.target.cards]
-        return f"玩家{self.target.id}的手牌是: {', '.join(hand_cards)}"
+        return f"{self.target.player_name}的手牌是: {', '.join(hand_cards)}"

@@ -75,7 +75,7 @@ class ExchangeStartHintMsg(Msg):
         self.players = players
 
     def __str__(self):
-        s = ", ".join(f"玩家{p.id}" for p in self.players)
+        s = ", ".join(p.player_name for p in self.players)
         return f"请{s}给出要交换的牌"
 
 
@@ -84,7 +84,7 @@ class ExchangeRejectedInvalidPlayerMsg(Msg):
         self.player = player
 
     def __str__(self):
-        return f"玩家{self.player.id}不是情报交换的参与者"
+        return f"{self.player.player_name}不是情报交换的参与者"
 
 
 class ExchangeRejectedDuplicateCardMsg(Msg):
@@ -92,7 +92,7 @@ class ExchangeRejectedDuplicateCardMsg(Msg):
         self.player = player
 
     def __str__(self):
-        return f"玩家{self.player.id}已经给过牌了"
+        return f"{self.player.player_name}已经给过牌了"
 
 
 class ExchangeResultMsg(Msg):
@@ -102,4 +102,4 @@ class ExchangeResultMsg(Msg):
         self.card = card
 
     def __str__(self):
-        return f"玩家{self.player.id}失去了[{self.prev_card.name}]，获得了[{self.card.name}]"
+        return f"{self.player.player_name}失去了[{self.prev_card.name}]，获得了[{self.card.name}]"

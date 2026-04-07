@@ -82,5 +82,5 @@ class CardPlayedMsg(Msg):
 
     def __str__(self):
         if self.target:
-            return f"玩家{self.player.id}对玩家{self.target.id}打出了[{self.card_name}]"
-        return f"玩家{self.player.id}打出了[{self.card_name}]"
+            return f"{self.player.player_name}对{self.target.player_name}打出了[{self.card_name}]"
+        return f"{self.player.player_name}打出了[{self.card_name}]"

@@ -52,7 +52,7 @@ class DogStartHintMsg(Msg):
         self.player = player
 
     def __str__(self):
-        return f"请玩家{self.player.id}丢弃一张牌"
+        return f"请{self.player.player_name}丢弃一张牌"
 
 
 class DogFailInvalidPlayerMsg(Msg):
@@ -60,7 +60,7 @@ class DogFailInvalidPlayerMsg(Msg):
         self.player = player
 
     def __str__(self):
-        return f"玩家{self.player.id}没被神犬咬"
+        return f"{self.player.player_name}没被神犬咬"
 
 
 class DogWinMsg(Msg):
@@ -75,5 +75,5 @@ class DogDiscardMsg(Msg):
 
     def __str__(self):
         return (
-            f"玩家{self.player.id}丢弃了[{self.prev_card.name}]，获得了[{DogCard.name}]"
+            f"{self.player.player_name}丢弃了[{self.prev_card.name}]，获得了[{DogCard.name}]"
         )
