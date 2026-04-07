@@ -44,14 +44,19 @@ class MessageRouter:
         Returns:
             bool: 消息是否被完全处理
         """
-        # 通过 SessionManager 获取或创建会话
-        session = await self._session_manager.get_or_create_session(session_id)
-
         # 设置上下文变量
         ctx.bot_id.set(bot_id)
         ctx.session_id.set(session_id)
 
         try:
+            # 通过 SessionManager 获取或创建会话
+            session = await self._session_manager.get_or_create_session(
+                session_id,
+                type=message_data.get("type", "private"),
+                group_id=message_data.get("group_id", ""),
+                user_id=message_data.get("user_id", ""),
+            )
+            
             # 构造消息对象
             message = Message(
                 content=message_data.get("content", ""),

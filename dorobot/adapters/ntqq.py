@@ -169,8 +169,10 @@ class NTQQBot(Bot):
         group_id = data.get("group_id")
 
         if message_type == "group" and group_id:
+            session_type = "group"
             session_id = f"ntqq.group.{group_id}"
         else:
+            session_type = "private"
             session_id = f"ntqq.private.{user_id}"
 
         message_content = data.get("raw_message") or self._extract_message_content(data.get("message", []))
@@ -184,6 +186,9 @@ class NTQQBot(Bot):
             "sender_name": sender_name,
             "session_id": session_id,
             "msg_type": message_type,
+            "type": session_type,
+            "group_id": str(group_id) if group_id else "",
+            "user_id": user_id,
             "raw_data": data,
         }
 

@@ -32,13 +32,25 @@ class ConsoleBot(Bot):
     async def send(self, session_id: str, content: str):
         logger.info(f"[Bot] {self.self_id} -> {session_id}: {content}")
 
-    def _build_message(self, content: str, session_id: str, sender_name: str) -> dict:
+    def _build_message(self, content: str, session_id: str, sender_id: str, sender_name: str) -> dict:
+        # 解析 session_id 判断类型
+        # 格式: group.123456 或 private.10001
+        if session_id.startswith("group."):
+            session_type = "group"
+            group_id = session_id[6:]
+        else:
+            session_type = "private"
+            group_id = ""
+
         return {
             "content": content,
-            "sender_id": f"{session_id}_{sender_name}",
+            "sender_id": sender_id,
             "sender_name": sender_name,
-            "session_id": session_id,
+            "session_id": f"console.{session_id}",
             "msg_type": "text",
+            "type": session_type,
+            "group_id": group_id,
+            "user_id": sender_id,
             "raw_data": {
                 "source": "console",
                 "input": content
@@ -66,9 +78,9 @@ class ConsoleBot(Bot):
                     continue
 
                 session_id, user_id, message_content = parsed
-                session_id = f"console.{session_id}"
-                message = self._build_message(message_content, session_id, user_id)
-                await self.on_message(session_id, message)
+                message = self._build_message(message_content, session_id, user_id, user_id)
+                full_session_id = f"console.{session_id}"
+                await self.on_message(full_session_id, message)
 
             except asyncio.CancelledError:
                 break
