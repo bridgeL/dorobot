@@ -6,6 +6,12 @@ from pathlib import Path
 from loguru import logger
 
 
+def init_space():
+    """初始化 Space 持久化，从磁盘加载数据"""
+    from dorobot.space_manager import space_manager
+    space_manager.init()
+
+
 def init_logging(
     level: str = "INFO",
     format_str: str | None = None,
@@ -93,6 +99,7 @@ def load_plugins(plugins_dir: str | Path | None = None, package: str = "plugins"
 def run():
     """启动 DoroBot，阻塞直到收到 KeyboardInterrupt"""
     from dorobot.adapter_manager import adapter_manager
+    from dorobot.space_manager import space_manager
 
     async def _run():
         logger.info("=" * 50)
@@ -103,6 +110,9 @@ def run():
         # adapter.start() 会注册 bot 到 bot_manager，并启动它们
         await adapter_manager.start_all()
 
+        # 启动 Space 持久化任务
+        space_manager.start()
+
         # 保持运行直到收到停止信号
         while True:
             await asyncio.sleep(1)
@@ -112,4 +122,5 @@ def run():
     except KeyboardInterrupt:
         pass
     finally:
+        space_manager.stop()
         logger.info("DoroBot stopped")

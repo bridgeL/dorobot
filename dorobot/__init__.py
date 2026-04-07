@@ -10,9 +10,11 @@ from dorobot.bot import Bot
 from dorobot.adapter import Adapter
 from dorobot.bot_manager import BotManager, bot_manager
 from dorobot.adapter_manager import AdapterManager, adapter_manager
-from dorobot.utils import init_logging, load_plugins, run
+from dorobot.utils import init_logging, load_plugins, run, init_space
 from dorobot import context as ctx
 from dorobot.on import on_command, on_keyword, on_pattern
+from dorobot.space import Space
+from dorobot.space_manager import SpaceManager, space_manager
 from loguru import logger
 
 def register_adapter(adapter: Adapter) -> bool:

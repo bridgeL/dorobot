@@ -55,18 +55,31 @@ class MetaPlugin(Plugin):
 
         # /help 命令：显示帮助信息
         if cmd_base == "/help":
+            # 检查是否是 /help 插件名
+            help_parts = content.strip().split()
+            if len(help_parts) >= 2:
+                plugin_name = help_parts[1].lower()
+                registered = plugin_manager.list_plugins()
+                if plugin_name in registered:
+                    meta = plugin_manager.get_plugin_metadata(plugin_name)
+                    desc = meta.get("description", "") if meta else ""
+                    await self.send_message(f"📖 {plugin_name}：{desc if desc else '无描述'}")
+                    return False
             await self._show_help()
             return False
 
-        # 检查是否是 /meta 插件名 格式的命令
-        if not content.lower().startswith("/meta "):
+        # 检查是否是 /meta 格式的命令
+        stripped_lower = content.lower().strip()
+        if not stripped_lower.startswith("/meta"):
             return True
 
         # 提取插件名
-        parts = content.split()
+        parts = stripped_lower.split()
         if len(parts) < 2:
-            return True
-        plugin_name = parts[1].lower()
+            # 无插件名，退化为 /plugins
+            await self._show_plugins()
+            return False
+        plugin_name = parts[1]
 
         if not plugin_name:
             return True

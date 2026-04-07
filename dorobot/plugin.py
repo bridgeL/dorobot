@@ -1,15 +1,18 @@
 """插件基类定义"""
+
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Optional
 from loguru import logger
 
 import dorobot.context as ctx
+from dorobot.space import Space
 
 
 @dataclass
 class Message:
     """消息数据类"""
+
     content: str
     sender_id: str
     sender_name: str
@@ -25,7 +28,13 @@ class Plugin(ABC):
     哪个 session 激活了该插件，handle_message 就接收哪个 session。
     """
 
-    def __init__(self, name: str, layer: int = 2, description: str = "", bots: list[type] | None = None):
+    def __init__(
+        self,
+        name: str,
+        layer: int = 2,
+        description: str = "",
+        bots: list[type] | None = None,
+    ):
         """初始化插件
 
         Args:
@@ -66,6 +75,7 @@ class Plugin(ABC):
         不在消息处理上下文中时返回 None。
         """
         from dorobot.session_manager import session_manager
+
         return session_manager.get_session(ctx.get_session_id())
 
     def get_bot(self):
@@ -75,9 +85,12 @@ class Plugin(ABC):
         不在消息处理上下文中时返回 None。
         """
         from dorobot.bot_manager import bot_manager
+
         return bot_manager.get_bot(ctx.get_bot_id())
 
-    async def send_message(self, content: str, session_id: str | None = None, bot_id: str | None = None):
+    async def send_message(
+        self, content: str, session_id: str | None = None, bot_id: str | None = None
+    ):
         """发送消息到当前会话
 
         通过 MessageRouter 发送消息。
@@ -93,14 +106,18 @@ class Plugin(ABC):
             bot_id = ctx.get_bot_id()
 
         if not bot_id:
-            logger.warning(f"Plugin {self.name} has no bot context, cannot send message")
+            logger.warning(
+                f"Plugin {self.name} has no bot context, cannot send message"
+            )
             return
 
         if session_id is None:
             session_id = ctx.get_session_id()
 
         if not session_id:
-            logger.warning(f"Plugin {self.name} has no session context, cannot send message")
+            logger.warning(
+                f"Plugin {self.name} has no session context, cannot send message"
+            )
             return
 
         # 从 bot_manager 获取 bot 并发送消息
@@ -109,3 +126,6 @@ class Plugin(ABC):
             await bot.send(session_id, content)
         else:
             logger.warning(f"Plugin {self.name}: bot '{bot_id}' not found")
+
+    def get_session_space(self):
+        return Space(ctx.get_session_id())
