@@ -11,6 +11,7 @@
 from typing import Optional
 
 from dorobot import Plugin, Message, Space
+import dorobot.context as ctx
 from .controller import CardPlayedMsg
 
 
@@ -79,6 +80,8 @@ class CriminalDancePlugin(Plugin):
             return await self._cmd_leave(message, group_id, room)
         elif content == "帮助" or content == "游戏帮助":
             return await self._cmd_help(message)
+        elif content == "手牌" or content == "我的牌":
+            return await self._cmd_handcard(message, group_id, room)
 
         return True
 
@@ -366,6 +369,39 @@ class CriminalDancePlugin(Plugin):
   共犯: 加入坏人阵营
 """
         await self.send_message(help_text.strip())
+        return False
+
+    async def _cmd_handcard(self, message: Message, group_id: str, room: dict) -> bool:
+        """查询自己的手牌（私聊回复）"""
+        if not room or room["status"] != "playing":
+            await self.send_message("当前不在游戏中")
+            return False
+
+        game = room.get("game")
+        if not game:
+            await self.send_message("游戏未初始化")
+            return False
+
+        # 找到当前玩家的手牌
+        player = None
+        for p in game.players:
+            if p.player_id == message.sender_id:
+                player = p
+                break
+
+        if not player:
+            await self.send_message("你不在游戏中")
+            return False
+
+        # 通过私聊发送手牌
+        cards_text = "\n".join(f"{i+1}. {c.name} - {c.desc}" for i, c in enumerate(player.cards))
+        text = (
+            f"🎴 你的手牌 ({game.num_players}人局)\n"
+            f"{cards_text}\n\n"
+            f"轮到你时发送: 出牌 牌名 [@目标]"
+        )
+        await self._send_private(player.player_id, text)
+        await self.send_message(f"已通过私聊发送你的手牌给 @{player.player_name}")
         return False
 
     # ==================== 游戏通知回调 ====================
