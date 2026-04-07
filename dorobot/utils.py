@@ -69,14 +69,23 @@ def load_plugins():
 
     logger.info(f"Loading plugins from: {plugins_dir}")
 
-    plugin_files = [
-        f for f in plugins_dir.glob("*.py")
-        if not f.name.startswith("_")
-    ]
+    # 收集要加载的插件: (file_path, module_name)
+    plugins_to_load = []
+
+    # 扫描根目录插件: plugins/*.py
+    for f in plugins_dir.glob("*.py"):
+        if not f.name.startswith("_"):
+            plugins_to_load.append((f, f"plugins.{f.stem}"))
+
+    # 扫描子目录插件: plugins/*/plugin.py
+    for subdir in plugins_dir.iterdir():
+        if subdir.is_dir() and not subdir.name.startswith("_"):
+            plugin_file = subdir / "plugin.py"
+            if plugin_file.exists():
+                plugins_to_load.append((plugin_file, f"plugins.{subdir.name}"))
 
     loaded = []
-    for file_path in sorted(plugin_files):
-        module_name = f"plugins.{file_path.stem}"
+    for file_path, module_name in sorted(plugins_to_load):
         try:
             importlib.import_module(module_name)
             logger.info(f"Loaded plugin module: {file_path.name}")
