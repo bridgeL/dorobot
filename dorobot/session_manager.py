@@ -3,7 +3,6 @@ from typing import Optional
 from loguru import logger
 
 from dorobot.session import Session
-from dorobot.plugin_manager import plugin_manager
 
 
 class SessionManager:
@@ -31,31 +30,24 @@ class SessionManager:
         """
         return self._sessions.get(session_id)
 
-    async def get_or_create_session(self, session_id: str) -> Session:
+    async def get_or_create_session(self, session_id: str, type: str = "private", group_id: str = "", user_id: str = "") -> Session:
         """获取或创建会话
 
         新会话会自动激活0层、1层和3层的所有插件。
 
         Args:
             session_id: 会话ID
+            type: 会话类型，"group" 或 "private"
+            group_id: 群号（仅群聊有效）
+            user_id: 用户 ID
 
         Returns:
             Session: 会话对象
         """
         if session_id not in self._sessions:
-            self._sessions[session_id] = Session(session_id)
-            logger.debug(f"Created new session: {session_id}")
-            # 自动激活 0层、1层、3层的所有插件
-            await self._auto_activate_shared_plugins(self._sessions[session_id])
+            self._sessions[session_id] = Session(session_id, type, group_id, user_id)
+            logger.debug(f"Created new session: {session_id} ({type})")
         return self._sessions[session_id]
-
-    async def _auto_activate_shared_plugins(self, session: Session):
-        """自动激活共享层（0、1、3层）的所有插件"""
-        for layer_id in (0, 1, 3):
-            plugin_names = plugin_manager.get_plugins_by_layer(layer_id)
-            for name in plugin_names:
-                if plugin_manager.get_plugin(name):  # 确保插件实例存在
-                    await session.activate_plugin(name, layer_id, silent=True)
 
     def remove_session(self, session_id: str) -> bool:
         """移除会话
