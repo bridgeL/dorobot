@@ -3,7 +3,7 @@
 from dorobot import Plugin, Message, register_plugin, logger
 
 
-@register_plugin("hello", layer=1, description="问候插件")
+@register_plugin("hello", layer=1, description="问候插件", scope="private")
 class HelloPlugin(Plugin):
     """1层插件示例 - 问候（共享层）"""
 
@@ -48,7 +48,7 @@ class GamePlugin(Plugin):
             return True
 
 
-@register_plugin("回声", layer=3, description="回声插件：重复用户的消息")
+@register_plugin("回声", layer=3, description="回声插件：重复用户的消息", active=False)
 class EchoPlugin(Plugin):
     """3层插件示例 - 回声（共享层）"""
 
