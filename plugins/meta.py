@@ -19,15 +19,6 @@ class MetaPlugin(Plugin):
     如果不匹配任何插件，则让消息继续传递到后续层级。
     """
 
-    def __init__(
-        self,
-        name: str = "meta",
-        layer: int = 0,
-        description: str = "",
-        bots: list[type] | None = None,
-    ):
-        super().__init__(name, layer, description, bots)
-
     async def handle_message(self, message: Message) -> bool:
         """处理消息
 
@@ -48,11 +39,6 @@ class MetaPlugin(Plugin):
 
         # 提取命令
         cmd_base = content.split()[0].lower()
-
-        # /plugins 命令：展示所有层级插件
-        if cmd_base == f"{prefix}plugins":
-            await self._show_plugins()
-            return False
 
         # /help 命令：显示帮助信息
         if cmd_base == f"{prefix}help":
@@ -153,6 +139,11 @@ class MetaPlugin(Plugin):
             layer = meta.get("layer", 0) if meta else 0
             desc = meta.get("description", "") if meta else ""
             bots = meta.get("bots") if meta else None
+            scope = meta.get("scope") if meta else None
+
+            # 检查插件是否匹配当前会话类型
+            if scope is not None and scope != session.type:
+                continue  # 跳过不适用于当前会话类型的插件
 
             # 检查插件是否允许当前 Bot 类型
             if bots is not None and current_bot is not None:
@@ -205,7 +196,6 @@ class MetaPlugin(Plugin):
             "",
             "【系统命令】",
             f"  {prefix}help     - 显示本帮助",
-            f"  {prefix}plugins  - 显示插件层级列表",
             "",
             "【插件管理】",
             f"  {prefix}meta 插件名   - 激活/关闭指定插件",
