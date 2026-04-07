@@ -3,13 +3,10 @@
 连接Bot和插件系统，负责消息的分发和路由。
 协调 BotManager 和 SessionManager 的关系。
 """
-import asyncio
 from loguru import logger
 
 from dorobot.plugin import Message
 from dorobot.session_manager import session_manager
-from dorobot.bot_manager import bot_manager
-from dorobot.bot import Bot
 import dorobot.context as ctx
 
 

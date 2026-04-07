@@ -92,7 +92,7 @@ def load_plugins(plugins_dir: str | Path | None = None, package: str = "plugins"
 
 def run():
     """启动 DoroBot，阻塞直到收到 KeyboardInterrupt"""
-    from .adapter_manager import adapter_manager
+    from dorobot.adapter_manager import adapter_manager
 
     async def _run():
         logger.info("=" * 50)
