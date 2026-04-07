@@ -2,21 +2,6 @@
 from loguru import logger
 
 
-class LayerError(Exception):
-    """Layer 操作异常基类"""
-    pass
-
-
-class PluginActivationError(LayerError):
-    """插件激活失败异常"""
-    pass
-
-
-class PluginDeactivationError(LayerError):
-    """插件关闭失败异常"""
-    pass
-
-
 class Layer:
     """碰撞层
 
@@ -65,11 +50,11 @@ class Layer:
             bool: 是否成功激活（True表示成功，已激活也返回True）
 
         Raises:
-            PluginActivationError: 激活失败时抛出
+            Exception: 激活失败时抛出
         """
         # meta层：只允许 meta 插件
         if self.layer_type == self.TYPE_META and plugin_name != "meta":
-            raise PluginActivationError(
+            raise Exception(
                 f"第 {self.layer_id} 层是系统保留层，只能激活 meta 插件"
             )
 
@@ -79,7 +64,7 @@ class Layer:
         # 独占层：如果有其他激活的插件，抛出异常
         if self.layer_type == self.TYPE_EXCLUSIVE and self._active_plugins:
             existing = list(self._active_plugins)[0]
-            raise PluginActivationError(
+            raise Exception(
                 f"第 {self.layer_id} 层已被插件 '{existing}' 占用，请先关闭它再激活 '{plugin_name}'"
             )
 
@@ -95,10 +80,10 @@ class Layer:
             bool: 是否成功关闭
 
         Raises:
-            PluginDeactivationError: 关闭失败时抛出
+            Exception: 关闭失败时抛出
         """
         if plugin_name not in self._active_plugins:
-            raise PluginDeactivationError(
+            raise Exception(
                 f"插件 '{plugin_name}' 未在第 {self.layer_id} 层激活，无需关闭"
             )
 

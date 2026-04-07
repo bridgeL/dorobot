@@ -9,8 +9,6 @@ from dorobot.plugin import Plugin, Message
 from dorobot.layer import (
     Layer,
     layer_prototype,
-    PluginActivationError,
-    PluginDeactivationError,
 )
 from dorobot.plugin_manager import plugin_manager
 from dorobot.bot_manager import bot_manager
@@ -39,6 +37,17 @@ class Session:
         # 从原型复制 layer 结构
         self._layers: dict[int, Layer] = layer_prototype.create_layers()
         self.data: dict = {}  # 会话数据存储，插件可读写
+        # 自动激活 default_active 的插件
+        self._activate_default_plugins()
+
+    def _activate_default_plugins(self):
+        """激活所有默认激活的插件"""
+        for name in plugin_manager.list_plugins():
+            plugin = plugin_manager.get_plugin(name)
+            if plugin and getattr(plugin, "default_active", False):
+                layer = self._layers.get(plugin.layer)
+                if layer and layer.can_activate(name):
+                    layer.activate_plugin(name, self.session_id, silent=True)
 
     def _get_layer(self, layer_id: int) -> Layer | None:
         """获取指定层（如果不存在返回 None）"""
@@ -58,11 +67,11 @@ class Session:
             bool: 是否成功激活
 
         Raises:
-            PluginActivationError: 激活失败时抛出
+            Exception: 激活失败时抛出
         """
         layer = self._get_layer(layer_id)
         if layer is None:
-            raise PluginActivationError(
+            raise Exception(
                 f"会话中不存在第 {layer_id} 层"
             )
         result = layer.activate_plugin(plugin_name, self.session_id, silent=silent)
@@ -87,11 +96,11 @@ class Session:
             bool: 是否成功关闭
 
         Raises:
-            PluginDeactivationError: 关闭失败时抛出
+            Exception: 关闭失败时抛出
         """
         layer = self._layers.get(layer_id)
         if not layer:
-            raise PluginDeactivationError(
+            raise Exception(
                 f"会话中不存在第 {layer_id} 层"
             )
         result = layer.deactivate_plugin(plugin_name, self.session_id)

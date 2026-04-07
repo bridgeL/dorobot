@@ -5,36 +5,44 @@ from typing import Any
 
 from dorobot.plugin import Plugin, Message
 from dorobot.plugin_manager import register_plugin
+from dorobot.config import config
 
 
-def on_command(cmd: str, description: str = "", layer: int = 1, name: str | None = None):
+def on_command(cmd: str, prefix: str = "", description: str = "", layer: int = 1, name: str | None = None, active: bool = True):
+    if not prefix:
+        prefix = config.cmd_prefix
     """快速创建命令插件的装饰器
 
     使用示例：
-        @on_command("/echo", "回声插件")
+        @on_command("echo", "/", "回声插件")
         async def handle(message: Message, plugin: Plugin, args: str):
             await plugin.send_message(args)
 
         # 或指定插件名
-        @on_command("/echo", "回声插件", name="my_echo")
+        @on_command("echo", "/", "回声插件", name="my_echo")
         async def handle(message: Message, plugin: Plugin, args: str):
             await plugin.send_message(args)
 
     Args:
-        cmd: 命令字符串，如 "/echo"
+        cmd: 命令字符串，如 "echo"
+        prefix: 命令前缀，默认 "/"
         description: 插件描述
         layer: 所属层级，默认 1
         name: 插件名称，默认使用函数名
+        active: 是否默认激活，默认 True
     """
+    full_cmd = f"{prefix}{cmd}"
+
     def decorator(func: Callable[[Message, Plugin, str], Any]):
         plugin_name = name if name is not None else func.__name__
+        desc = description if description else (func.__doc__ or "").strip().split("\n")[0]
 
-        @register_plugin(plugin_name, layer=layer, description=description)
+        @register_plugin(plugin_name, layer=layer, description=desc, active=active)
         class _CommandPlugin(Plugin):
             async def handle_message(self, message: Message) -> bool:
                 stripped = message.content.strip()
-                if stripped == cmd or stripped.startswith(f"{cmd} "):
-                    args = stripped[len(cmd):].lstrip() if len(stripped) > len(cmd) else ""
+                if stripped == full_cmd or stripped.startswith(f"{full_cmd} "):
+                    args = stripped[len(full_cmd):].lstrip() if len(stripped) > len(full_cmd) else ""
                     await func(message, self, args)
                     return False
                 return True
@@ -43,7 +51,7 @@ def on_command(cmd: str, description: str = "", layer: int = 1, name: str | None
     return decorator
 
 
-def on_keyword(keyword: str, description: str = "", layer: int = 1, name: str | None = None):
+def on_keyword(keyword: str, description: str = "", layer: int = 1, name: str | None = None, active: bool = True):
     """快速创建关键词插件的装饰器
 
     使用示例：
@@ -61,11 +69,13 @@ def on_keyword(keyword: str, description: str = "", layer: int = 1, name: str | 
         description: 插件描述
         layer: 所属层级，默认 1
         name: 插件名称，默认使用函数名
+        active: 是否默认激活，默认 True
     """
     def decorator(func: Callable[[Message, Plugin], Any]):
         plugin_name = name if name is not None else func.__name__
+        desc = description if description else (func.__doc__ or "").strip().split("\n")[0]
 
-        @register_plugin(plugin_name, layer=layer, description=description)
+        @register_plugin(plugin_name, layer=layer, description=desc, active=active)
         class _KeywordPlugin(Plugin):
             async def handle_message(self, message: Message) -> bool:
                 if keyword.lower() in message.content.lower():
@@ -77,7 +87,7 @@ def on_keyword(keyword: str, description: str = "", layer: int = 1, name: str | 
     return decorator
 
 
-def on_pattern(pattern: str, description: str = "", layer: int = 1, name: str | None = None):
+def on_pattern(pattern: str, description: str = "", layer: int = 1, name: str | None = None, active: bool = True):
     """快速创建正则匹配插件的装饰器
 
     使用示例：
@@ -95,15 +105,17 @@ def on_pattern(pattern: str, description: str = "", layer: int = 1, name: str | 
         description: 插件描述
         layer: 所属层级，默认 1
         name: 插件名称，默认使用函数名
+        active: 是否默认激活，默认 True
     """
     import re
     from re import Match
 
     def decorator(func: Callable[[Message, Plugin, Match[str]], Any]):
         plugin_name = name if name is not None else func.__name__
+        desc = description if description else (func.__doc__ or "").strip().split("\n")[0]
         compiled = re.compile(pattern)
 
-        @register_plugin(plugin_name, layer=layer, description=description)
+        @register_plugin(plugin_name, layer=layer, description=desc, active=active)
         class _PatternPlugin(Plugin):
             async def handle_message(self, message: Message) -> bool:
                 match = compiled.match(message.content.strip())
@@ -111,6 +123,36 @@ def on_pattern(pattern: str, description: str = "", layer: int = 1, name: str | 
                     await func(message, self, match)
                     return False
                 return True
+
+        return func
+    return decorator
+
+
+def on_message(description: str = "", layer: int = 3, name: str | None = None, active: bool = True):
+    """快速创建通用消息处理插件的装饰器
+
+    每次收到消息都会触发，适用于统计、监控等需要处理所有消息的场景。
+
+    使用示例：
+        @on_message("消息统计")
+        async def handle(message: Message, plugin: Plugin):
+            print(f"收到消息: {message.content}")
+
+    Args:
+        description: 插件描述
+        layer: 所属层级，默认 3（兜底层）
+        name: 插件名称，默认使用函数名
+        active: 是否默认激活，默认 True
+    """
+    def decorator(func: Callable[[Message, Plugin], Any]):
+        plugin_name = name if name is not None else func.__name__
+        desc = description if description else (func.__doc__ or "").strip().split("\n")[0]
+
+        @register_plugin(plugin_name, layer=layer, description=desc, active=active)
+        class _MessagePlugin(Plugin):
+            async def handle_message(self, message: Message) -> bool:
+                await func(message, self)
+                return True  # 继续传递，不中断
 
         return func
     return decorator

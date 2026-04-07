@@ -6,8 +6,8 @@
 import dorobot.context as ctx
 from dorobot.plugin import Plugin, Message
 from dorobot.plugin_manager import register_plugin, plugin_manager
-from dorobot.layer import PluginActivationError, PluginDeactivationError
 from dorobot.bot_manager import bot_manager
+from dorobot.config import config
 
 
 @register_plugin("meta", layer=0, description="Meta插件：管理其他插件的激活/关闭")
@@ -40,21 +40,22 @@ class MetaPlugin(Plugin):
             return True
 
         content = message.content.strip()
+        prefix = config.cmd_prefix
 
-        # 检查是否以 / 开头
-        if not content.startswith("/"):
+        # 检查是否以命令前缀开头
+        if not content.startswith(prefix):
             return True
 
         # 提取命令
         cmd_base = content.split()[0].lower()
 
         # /plugins 命令：展示所有层级插件
-        if cmd_base == "/plugins":
+        if cmd_base == f"{prefix}plugins":
             await self._show_plugins()
             return False
 
         # /help 命令：显示帮助信息
-        if cmd_base == "/help":
+        if cmd_base == f"{prefix}help":
             # 检查是否是 /help 插件名
             help_parts = content.strip().split()
             if len(help_parts) >= 2:
@@ -70,7 +71,7 @@ class MetaPlugin(Plugin):
 
         # 检查是否是 /meta 格式的命令
         stripped_lower = content.lower().strip()
-        if not stripped_lower.startswith("/meta"):
+        if not stripped_lower.startswith(f"{prefix}meta"):
             return True
 
         # 提取插件名
@@ -119,14 +120,14 @@ class MetaPlugin(Plugin):
             try:
                 session.deactivate_plugin(plugin_name, layer_id)
                 await self.send_message(f"🔴 插件 {plugin_name} 已关闭")
-            except PluginDeactivationError as e:
+            except Exception as e:
                 await self.send_message(f"❌ 关闭插件失败：{e}")
         else:
             # 激活插件
             try:
                 await self.send_message(f"🟢 插件 {plugin_name} 已激活")
                 await session.activate_plugin(plugin_name, layer_id)
-            except PluginActivationError as e:
+            except Exception as e:
                 await self.send_message(f"❌ 激活插件失败：{e}")
 
         # 终止消息传递
@@ -197,16 +198,17 @@ class MetaPlugin(Plugin):
 
     async def _show_help(self):
         """显示帮助信息"""
+        prefix = config.cmd_prefix
         lines = [
             "📖 DoroBot 帮助",
             "=" * 40,
             "",
             "【系统命令】",
-            "  /help     - 显示本帮助",
-            "  /plugins  - 显示插件层级列表",
+            f"  {prefix}help     - 显示本帮助",
+            f"  {prefix}plugins  - 显示插件层级列表",
             "",
             "【插件管理】",
-            "  /meta 插件名   - 激活/关闭指定插件",
+            f"  {prefix}meta 插件名   - 激活/关闭指定插件",
         ]
 
         lines.append("")
