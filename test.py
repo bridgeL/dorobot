@@ -1,0 +1,13 @@
+"""多插件聊天机器人 - 启动入口"""
+
+from dorobot import init_logging, load_plugins, run, register_adapter, init_space
+
+init_logging(level="DEBUG")
+init_space()
+load_plugins()
+
+# 命令行调试
+from dorobot.adapters.console import ConsoleAdapter
+register_adapter(ConsoleAdapter())
+
+run()

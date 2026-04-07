@@ -410,16 +410,19 @@ class MyPlugin(Plugin):
 
 ### 启用 ConsoleBot
 
-在 `app.py` 中注册 ConsoleAdapter：
+在 `test.py` 中注册 ConsoleAdapter：
 
 ```python
-from dorobot import init_logging, load_plugins, run, register_adapter
-from dorobot.adapters.console import ConsoleAdapter
+"""多插件聊天机器人 - 启动入口"""
+
+from dorobot import init_logging, load_plugins, run, register_adapter, init_space
 
 init_logging(level="DEBUG")
+init_space()
 load_plugins()
 
-# 启用 ConsoleBot
+# 命令行调试
+from dorobot.adapters.console import ConsoleAdapter
 register_adapter(ConsoleAdapter())
 
 run()
