@@ -22,20 +22,22 @@ class Space(dict):
         cls._instances[key] = instance
         return instance
 
-    def __init__(self, *names: str):
+    def __init__(self, *names: str, memory: bool = False):
         """初始化空间
 
         Args:
             *names: 空间路径部分，如 Space("a", "b", "c") -> space/a/b/c.json
+            memory: 为 True 时不持久化到磁盘，也不从磁盘加载
         """
         super().__init__()
         self._names = names
         self._key = "/".join(names)
         self._dirty = False
-        # 自动注册到 manager
-        from dorobot.space_manager import space_manager
-
-        space_manager.register(self)
+        self._memory = memory
+        # memory 模式不注册到 manager，不参与持久化
+        if not memory:
+            from dorobot.space_manager import space_manager
+            space_manager.register(self)
 
     @property
     def name(self) -> str:

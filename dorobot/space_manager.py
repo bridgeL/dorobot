@@ -9,8 +9,13 @@ from dorobot.space import Space
 class SpaceManager:
     """Space 管理器
 
-    管理所有 Space 实例的注册和持久化。
-    每秒扫描所有 Space，将 dirty 的 Space 保存到磁盘。
+    管理所有 Space 实例的持久化（保存到磁盘）。
+    注意：Space 本身通过 _instances 实现了单例模式，同名 name 只会创建一个实例。
+    space_manager 的作用是统一管理所有 Space 的持久化，二者职责不同：
+    - Space._instances：解决同名 Space 的单例问题，确保同一 name 只创建一个实例
+    - space_manager：负责定期扫描 dirty 的 Space 并保存到磁盘
+    这样做的好处是，即使 Space 没有注册到 space_manager（如 memory=True），
+    也不影响其他 Space 的持久化。
     """
 
     def __init__(self):
