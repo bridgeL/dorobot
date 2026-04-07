@@ -228,25 +228,27 @@ from dorobot import on_command, on_keyword, on_pattern
 
 #### on_command - 命令触发
 
-以指定命令字符串触发，如 `/echo`：
+以指定命令字符串触发，前缀默认为 `/`，可配置：
 
 ```python
 from dorobot import on_command, Message
 
-@on_command("/echo", "回声插件")
-async def echo(message: Message, plugin):
-    await plugin.send_message(message.content)
+@on_command("echo")  # 匹配 /echo
+async def echo(message: Message, plugin, args: str):
+    """回声插件"""
+    await plugin.send_message(args)
 ```
 
 #### on_keyword - 关键词触发
 
-消息包含关键词时触发（不区分大小写）：
+消息包含关键词时触发（不区分大小写），description 默认为函数注释：
 
 ```python
 from dorobot import on_keyword, Message
 
-@on_keyword("天气", "查询天气")
+@on_keyword("天气")  # description 默认为 "查询天气示例"
 async def weather(message: Message, plugin):
+    """查询天气示例"""
     await plugin.send_message(f"{message.sender_name}，今天天气晴朗！")
 ```
 
@@ -257,12 +259,13 @@ async def weather(message: Message, plugin):
 ```python
 from dorobot import on_pattern, Message
 
-@on_pattern(r"^/echo (.+)$", "回声插件")
+@on_pattern(r"^/echo (.+)$")  # description 默认为函数注释
 async def echo(message: Message, plugin, match):
+    """回声插件"""
     await plugin.send_message(match.group(1))
 ```
 
-所有装饰器默认注册到 Layer 1（共享层），可通过 `layer` 参数指定其他层级。
+所有装饰器默认注册到 Layer 1（共享层），description 默认为函数注释的第一行。
 
 ---
 
@@ -272,17 +275,17 @@ Meta 插件位于 0 层（系统保留层），是预置的管理插件。
 
 ### 功能
 
-- `/help` - 显示帮助信息
-- `/plugins` - 显示所有层级插件列表及激活状态
-- `/meta 插件名` - 激活或关闭指定插件
+- `{prefix}help` - 显示帮助信息
+- `{prefix}plugins` - 显示所有层级插件列表及激活状态
+- `{prefix}meta 插件名` - 激活或关闭指定插件
 
 ### 使用示例
 
 ```
-用户输入: /echo
+用户输入: {prefix}echo
 结果: 切换 echo 插件的激活状态
 
-用户输入: /plugins
+用户输入: {prefix}plugins
 结果: 显示所有插件的层级和状态
 ```
 
