@@ -17,16 +17,12 @@ python test_server.py
 2. 然后要读取插件代码确认它的结构和功能
 3. 确保用户已经启动test_server.py
 
-## 常用接口
+## 健康检查
 ```bash
-# 健康检查
 curl http://localhost:18765/health
-
-# 查看会话
-curl http://localhost:18765/sessions
 ```
 
-## 发送消息
+## 模拟用户发送消息
 ```bash
 curl -X POST http://localhost:18765/msg \
   --data-urlencode "session_id=group.test123" \
@@ -36,6 +32,12 @@ curl -X POST http://localhost:18765/msg \
 ```
 - 必须用 `--data-urlencode` 避免中文参数乱码。
 - content中的任何`/`都需要先转义为`//`，这是因为在Bash中直接使用`/`可能会被解析器误认为是路径。
+- 发送消息后，接口会返回最近10条日志。如果你需要更多信息可以调用 `/log?count=N` 接口查看更多日志。
+
+## 查看最近日志
+```bash
+curl http://localhost:18765/log?count=50
+```
 
 ## 插件管理（/meta 命令）
 ```bash
@@ -46,10 +48,6 @@ content=//meta
 content=//meta 插件名
 ```
 
-## 查看最近日志
-- `/log?count=10` 查看最近10条日志
-
-各个接口会返回status: ok，但是这只意味着接口调用成功，并不代表插件处理成功。请务必使用/log 查看日志，确认插件是否正确处理了消息。
-
-## 测试私聊
+## 模拟不同类型的会话
+- 群聊测试用 `session_id=group.group1`
 - 私聊测试用 `session_id=private.user1`
