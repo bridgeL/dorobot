@@ -47,7 +47,7 @@ def on_command(cmd: str, description: str = "", layer: int = 1, name: str | None
     return decorator
 
 
-def on_keyword(keyword: str, description: str = "", layer: int = 1, name: str | None = None, scope: str | None = None, active: bool = False):
+def on_keyword(keyword: str | list[str], description: str = "", layer: int = 1, name: str | None = None, scope: str | None = None, active: bool = False):
     """快速创建关键词插件的装饰器
 
     使用示例：
@@ -55,14 +55,22 @@ def on_keyword(keyword: str, description: str = "", layer: int = 1, name: str | 
         async def handle(message: Message, plugin: Plugin):
             await plugin.send_message("你好！")
 
+        # 多个关键词
+        @on_keyword(["你好", "hello"])
+        async def handle(message: Message, plugin: Plugin):
+            await plugin.send_message("你好！")
+
     Args:
-        keyword: 关键词，消息包含该关键词时触发
+        keyword: 关键词或关键词列表，消息包含任一关键词时触发
         description: 插件描述，默认为函数注释第一行
         layer: 所属层级，默认 1
         name: 插件名称，默认使用函数名
         scope: 生效范围，None=全部, "private"=仅私聊, "group"=仅群聊
         active: 是否默认激活，默认 False
     """
+    # 统一转换为列表
+    keywords = [keyword] if isinstance(keyword, str) else keyword
+
     def decorator(func: Callable[[Message, Plugin], Any]):
         plugin_name = name if name is not None else func.__name__
         desc = description if description else (func.__doc__ or "").strip().split("\n")[0]
@@ -70,9 +78,11 @@ def on_keyword(keyword: str, description: str = "", layer: int = 1, name: str | 
         @register_plugin(plugin_name, layer=layer, description=desc, scope=scope, active=active)
         class _KeywordPlugin(Plugin):
             async def handle_message(self, message: Message) -> bool:
-                if keyword.lower() in message.content.lower():
-                    await func(message, self)
-                    return False
+                content_lower = message.content.lower()
+                for kw in keywords:
+                    if kw.lower() in content_lower:
+                        await func(message, self)
+                        return False
                 return True
 
         return func

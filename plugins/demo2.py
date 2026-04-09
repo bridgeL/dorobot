@@ -9,8 +9,7 @@ async def echo(message: Message, plugin: Plugin, arg: str):
     await plugin.send_message(arg)
 
 
-@on_keyword("你好", active=True)
-@on_keyword("hello", active=True)
+@on_keyword(["你好", "hello"], active=True)
 async def hello(message: Message, plugin: Plugin):
     """问候插件"""
     await plugin.send_message(f"👋 你好，{message.sender_name}！")

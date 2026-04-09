@@ -70,7 +70,14 @@ async def echo(message: Message, plugin: Plugin, arg: str):
 消息包含关键词时触发（不区分大小写）：
 
 ```python
+# 单个关键词
 @on_keyword("你好")
+async def hello(message: Message, plugin: Plugin):
+    """问候插件"""
+    await plugin.send_message(f"👋 你好，{message.sender_name}！")
+
+# 多个关键词
+@on_keyword(["你好", "hello"])
 async def hello(message: Message, plugin: Plugin):
     """问候插件"""
     await plugin.send_message(f"👋 你好，{message.sender_name}！")
