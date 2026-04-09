@@ -204,7 +204,7 @@ CMD_PREFIX=.
 
 ## Space 持久化
 
-Space 是基于文件系统的持久化键值存储，适合存储插件的会话相关数据。
+Space 是基于文件系统的持久化键值存储，适合存储插件的会话相关数据。Space是单例模式。相同names创建出的Space指向同一对象。
 
 ### 基本用法
 
@@ -232,6 +232,7 @@ print(space["key"])  # value
 Space 支持两种持久化模式：
 
 **持久化模式（默认）**：数据自动保存到 `space/` 目录
+
 **内存模式**：设置 `Space(..., memory=True)`，数据仅存储在内存中
 
 ```python
@@ -249,9 +250,8 @@ class MyPlugin(Plugin):
         # 方式1：通过 get_space() 获取（自动绑定插件名和会话ID）
         space = self.get_space(memory=False)
 
-        # 方式2：直接实例化（需手动指定 session_id）
-        session = self.get_session()
-        space = Space("my_plugin", session.session_id, memory=False)
+        # 方式2：直接实例化
+        space = Space("my_plugin", "随便你", memory=False)
 
         space["visit_count"] = space.get("visit_count", 0) + 1
         return True
@@ -283,6 +283,8 @@ class MyPlugin(Plugin):
 ```
 
 适用场景：调用平台提供的其他 API（如获取群成员信息、查询用户资料等）。
+
+[NapCat提供的API](https://napcat.apifox.cn/)
 
 ---
 
