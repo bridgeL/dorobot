@@ -8,16 +8,17 @@
 HTTP 接口:
   GET  /health                        - 健康检查
   GET  /sessions                      - 列出会话
-  POST /activate                      - 激活插件
+  GET  /log                          - 获取最近日志
   POST /msg                           - 发送消息
 
 示例:
   curl http://localhost:18765/msg -d "sender_id=user1&sender_name=用户1&content=创建房间"
-  curl http://localhost:18765/activate -d "session_id=group.test123&plugin_name=criminal_dance&layer=2"
+  curl http://localhost:18765/log?count=20
 """
 
 import asyncio
 import threading
+from pathlib import Path
 from typing import Optional
 from loguru import logger
 
@@ -32,7 +33,7 @@ from dorobot.bot_manager import bot_manager
 class AITestAdapter(Adapter):
     """AI 测试适配器"""
 
-    name = "aitest"
+    name = "ai_test"
 
     def __init__(self, port: int = 18765):
         super().__init__()
@@ -40,6 +41,19 @@ class AITestAdapter(Adapter):
         self._bot: Optional[AITestBot] = None
         self._server_thread: Optional[threading.Thread] = None
         self._app: Optional[FastAPI] = None
+
+        # 添加 ai_test 专用日志文件，DEBUG 级别
+        logs_dir = Path.cwd() / "logs"
+        logs_dir.mkdir(exist_ok=True)
+        logger.add(
+            logs_dir / "ai_test.log",
+            format="<green>{time:YYYY-MM-DD HH:mm:ss.SSS}</green> | "
+                  "<level>{level: <8}</level> | "
+                  "<cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - "
+                  "<level>{message}</level>",
+            level="DEBUG",
+            mode="w"
+        )
 
     async def start(self):
         bot = AITestBot()
@@ -54,25 +68,25 @@ class AITestAdapter(Adapter):
         async def health():
             return {"status": "ok"}
 
-        @app.get("/sessions")
-        async def sessions():
-            from dorobot.session_manager import session_manager
-            return {"sessions": session_manager.list_sessions()}
+        @app.get("/log")
+        async def get_log(count: int = 10):
+            """获取最近指定数量的 ai_test 日志
 
-        @app.post("/activate")
-        async def activate(
-            session_id: str = Form("group.test123"),
-            plugin_name: str = Form(...),
-            layer: int = Form(2)
-        ):
-            from dorobot.session_manager import session_manager
-            session_type = "group" if session_id.startswith("group.") else "private"
-            group_id = session_id.split(".")[1] if "." in session_id else ""
-            session = await session_manager.get_or_create_session(
-                session_id, type=session_type, group_id=group_id, user_id=""
-            )
-            await session.activate_plugin(plugin_name, layer_id=layer)
-            return {"status": "ok", "activated": plugin_name}
+            Args:
+                count: 要获取的日志数量，默认10条，最多100条
+
+            Returns:
+                日志列表
+            """
+            count = min(count, 100)
+            logs_dir = Path.cwd() / "logs"
+            ai_test_log = logs_dir / "ai_test.log"
+            if not ai_test_log.exists():
+                return {"logs": [], "count": 0}
+            # 读取最后 count 行
+            lines = ai_test_log.read_text(encoding="utf-8").splitlines()
+            recent_lines = lines[-count:] if len(lines) > count else lines
+            return {"logs": recent_lines, "count": len(recent_lines)}
 
         @app.post("/msg")
         async def send_msg(
@@ -81,9 +95,11 @@ class AITestAdapter(Adapter):
             sender_name: str = Form("用户1"),
             content: str = Form(...)
         ):
+            from datetime import datetime
+            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
             await self._bot.send_test(session_id, sender_id, sender_name, content)
             await asyncio.sleep(0.05)
-            return {"status": "ok"}
+            return {"status": "ok", "msg": "msg received, however you need use log to check", "time": timestamp}
 
         # 在线程中启动 uvicorn 服务器
         def run_server():
@@ -96,7 +112,6 @@ class AITestAdapter(Adapter):
         await asyncio.sleep(1)
 
         logger.info(f"AITestAdapter started - HTTP server on localhost:{self.port}")
-        print(f"AITestAdapter started - HTTP server on http://localhost:{self.port}")
 
     async def stop(self):
         pass  # daemon thread will stop when main process exits
@@ -106,7 +121,7 @@ class AITestBot(Bot):
     """AI 测试机器人"""
 
     def __init__(self):
-        super().__init__(self_id="aitest")
+        super().__init__(self_id="ai_test")
         self._running = False
 
     async def send(self, session_id: str, content: str):
