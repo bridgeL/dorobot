@@ -73,6 +73,15 @@ class AITestAdapter(Adapter):
             lines = ai_test_log.read_text(encoding="utf-8").splitlines()
             return lines[-count:] if len(lines) > count else lines
 
+        def get_logs_since(start_line: int) -> list[str]:
+            """获取从指定行偏移之后的所有日志"""
+            logs_dir = Path.cwd() / "logs"
+            ai_test_log = logs_dir / "ai_test.log"
+            if not ai_test_log.exists():
+                return []
+            lines = ai_test_log.read_text(encoding="utf-8").splitlines()
+            return lines[start_line:] if start_line < len(lines) else []
+
         @app.get("/health")
         async def health():
             return {"status": "ok"}
@@ -99,10 +108,14 @@ class AITestAdapter(Adapter):
             content: str = Form(...)
         ):
             logger.debug(f"[AITest Msg] session={session_id}, sender={sender_name}({sender_id}), content={content}")
+            # 记录当前日志行数，send_test 后获取增量日志
+            logs_dir = Path.cwd() / "logs"
+            ai_test_log = logs_dir / "ai_test.log"
+            start_line = ai_test_log.read_text(encoding="utf-8").splitlines().__len__() if ai_test_log.exists() else 0
             await self._bot.send_test(session_id, sender_id, sender_name, content)
             await asyncio.sleep(0.2)
             timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
-            return {"logs": get_recent_logs(10), "time": timestamp}
+            return {"logs": get_logs_since(start_line), "time": timestamp}
 
         # 在线程中启动 uvicorn 服务器
         def run_server():
