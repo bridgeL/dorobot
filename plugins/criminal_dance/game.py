@@ -40,10 +40,10 @@ class Game:
 
         # 更新房间中的当前玩家ID
         if self.plugin and self.group_id:
-            room = self.plugin._get_room(self.group_id)
+            room = self.plugin._get_room()
             if room:
                 room["current_player_id"] = self.current_player.player_id
-                self.plugin._save_room(self.group_id, room)
+                self.plugin._save_room(room)
 
     def create_cards(self) -> list[Card]:
         num_players = self.num_players
@@ -196,10 +196,10 @@ class Game:
 
         # 更新房间中的当前玩家ID
         if self.plugin and self.group_id:
-            room = self.plugin._get_room(self.group_id)
+            room = self.plugin._get_room()
             if room:
                 room["current_player_id"] = self.current_player.player_id
-                self.plugin._save_room(self.group_id, room)
+                self.plugin._save_room(room)
 
         # 打印游戏状态
         print(self)

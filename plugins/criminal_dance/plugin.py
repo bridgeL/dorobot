@@ -10,39 +10,50 @@
 
 from typing import Optional
 from loguru import logger
-from dorobot import Plugin, Message, Space, register_plugin, ctx
+from dorobot import Plugin, Message, register_plugin, ctx
+from dorobot.space import Space
 from .controller import CardPlayedMsg
 
 
-@register_plugin("criminal_dance", layer=2, description="犯罪舞蹈 - 狼人杀类推理社交游戏", scope="group", active=False)
+@register_plugin("criminal_dance", layer=2, description="犯罪舞蹈 - 狼人杀类推理社交游戏", scope=None, active=True)
 class CriminalDancePlugin(Plugin):
     """犯罪舞蹈游戏插件"""
 
-    def _get_space(self, group_id: str) -> Space:
-        """获取群聊对应的Space，用于存储房间和游戏数据"""
-        return Space("criminal_dance", group_id, memory=True)
+    def _get_room(self) -> Optional[dict]:
+        """获取房间信息
 
-    def _get_room(self, group_id: str) -> Optional[dict]:
-        """获取房间信息"""
-        space = self._get_space(group_id)
-        return space.get("room")
+        如果在私聊会话中，会尝试查找对应的群聊会话来获取房间
+        """
+        session = self.get_session()
+        space = self.get_space()
 
-    def _save_room(self, group_id: str, room: dict):
+        # 私聊从 group_space 获取 room
+        if session.type == "private":
+            room = space.get(f"{self.name}_group_space").get("room")
+        else:
+            room = space.get("room")
+
+        return room
+
+    def _save_room(self, room: dict):
         """保存房间信息"""
-        space = self._get_space(group_id)
-        space["room"] = room
+        self.get_space()["room"] = room
 
     async def handle_message(self, message: Message) -> bool:
         """处理消息"""
         session = self.get_session()
-        if not session:
-            return True
+
+        # 私聊需要检查是否有 group_space 映射
+        if session.type == "private":
+            space = self.get_space()
+            if not space.get(f"{self.name}_group_space"):
+                return True  # 私聊但没有对应的群聊游戏，不处理
 
         group_id = session.group_id or message.sender_id
         content = message.content.strip()
 
         # 获取房间状态
-        room = self._get_room(group_id)
+        room = self._get_room()
 
         # 解析命令
         if content == "创建房间":
@@ -68,7 +79,7 @@ class CriminalDancePlugin(Plugin):
 
     async def _cmd_create_room(self, message: Message, group_id: str) -> bool:
         """创建房间"""
-        existing = self._get_room(group_id)
+        existing = self._get_room()
         if existing:
             await self.send_message("房间已存在，请先解散或加入现有房间")
             return False
@@ -81,7 +92,7 @@ class CriminalDancePlugin(Plugin):
             "player_ids": [message.sender_id],
             "game": None,
         }
-        self._save_room(group_id, room)
+        self._save_room( room)
 
         msg = (
             f"🎭 犯罪舞蹈房间已创建！\n"
@@ -111,7 +122,7 @@ class CriminalDancePlugin(Plugin):
         # 加入房间
         room["players"].append((message.sender_id, message.sender_name))
         room["player_ids"].append(message.sender_id)
-        self._save_room(group_id, room)
+        self._save_room( room)
 
         player_count = len(room["players"])
         msg = (
@@ -144,7 +155,7 @@ class CriminalDancePlugin(Plugin):
         if message.sender_id == room["owner_id"]:
             if len(room["players"]) <= 1:
                 # 只有房主一个人，直接解散
-                self._save_room(group_id, None)
+                self._save_room( None)
                 await self.send_message("房主离开了房间，房间已解散")
             else:
                 # 转移房主给下一个玩家
@@ -153,13 +164,13 @@ class CriminalDancePlugin(Plugin):
                 room["player_ids"].pop(idx)
                 room["owner_id"] = room["player_ids"][0]
                 room["owner_name"] = room["players"][0][1]
-                self._save_room(group_id, room)
+                self._save_room( room)
                 await self.send_message(f"房主离开了，新房主是 {room['owner_name']}")
         else:
             idx = room["player_ids"].index(message.sender_id)
             room["players"].pop(idx)
             room["player_ids"].pop(idx)
-            self._save_room(group_id, room)
+            self._save_room( room)
             await self.send_message(f"{message.sender_name} 离开了房间，当前{len(room['players'])}人")
 
         return False
@@ -196,9 +207,15 @@ class CriminalDancePlugin(Plugin):
             game.players[i].player_id = player_id
             game.players[i].player_name = player_name
 
+        # 建立玩家私聊会话 -> 群聊 space 的映射
+        group_space = self.get_space()
+        for player_id, _ in room["players"]:
+            private_space = Space(self.name, f"private.{player_id}", memory=True)
+            private_space[f"{self.name}_group_space"] = group_space
+
         room["game"] = game
         room["status"] = "playing"
-        self._save_room(group_id, room)
+        self._save_room( room)
 
         # 启动游戏
         await game.start()
@@ -215,7 +232,7 @@ class CriminalDancePlugin(Plugin):
             await self.send_message("只有房主可以解散房间")
             return False
 
-        self._save_room(group_id, None)
+        self._save_room( None)
         await self.send_message("房间已解散")
         return False
 
@@ -306,7 +323,7 @@ class CriminalDancePlugin(Plugin):
         if game.is_end:
             # 游戏结束
             room["status"] = "ended"
-            self._save_room(group_id, room)
+            self._save_room( room)
         elif type(game.controller).__name__ == "PlayCardController":
             # 正常出牌，切换到下一个玩家
             await game.next_turn()
