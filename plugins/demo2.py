@@ -1,47 +1,16 @@
 """示例插件集合 2"""
 
-from collections import Counter
-
-from dorobot import on_command, on_keyword, on_message, Message, Plugin, Space
+from dorobot import on_command, on_keyword, Message, Plugin
 
 
 @on_command("echo", active=False)
-async def echo(message: Message, plugin: Plugin, args: str):
+async def echo(message: Message, plugin: Plugin, arg: str):
     """回声插件 - 回复去掉命令后的内容"""
-    await plugin.send_message(args)
+    await plugin.send_message(arg)
 
 
-@on_keyword("天气")
-async def weather(message: Message, plugin: Plugin):
-    """查询天气示例"""
-    await plugin.send_message(f"{message.sender_name}，今天天气晴朗，温度 20-28°C！")
-
-
-@on_message(name="字频统计", scope="group")
-async def char_freq(message: Message, plugin: Plugin):
-    """统计群里各成员的字频，用 Space 持久化"""
-    session = plugin.get_session()
-
-    char_space = Space("char_freq", session.group_id)
-
-    for char in message.content:
-        if char.strip():  # 只统计非空白字符
-            char_space[char] = char_space.get(char, 0) + 1
-
-
-@on_command("result", name="字频统计结果", scope="group")
-async def show_char(message: Message, plugin: Plugin, args: str):
-    """查看字频统计"""
-    session = plugin.get_session()
-
-    char_space = Space("char_freq", session.group_id)
-
-    if not char_space:
-        await plugin.send_message("暂无字频数据")
-        return
-
-    top10 = Counter(dict(char_space)).most_common(10)
-    lines = [f"📊 本群字频 Top10："]
-    for i, (char, count) in enumerate(top10, 1):
-        lines.append(f"  {i}.「{char}」×{count}")
-    await plugin.send_message("\n".join(lines))
+@on_keyword("你好", active=True)
+@on_keyword("hello", active=True)
+async def hello(message: Message, plugin: Plugin):
+    """问候插件"""
+    await plugin.send_message(f"👋 你好，{message.sender_name}！")

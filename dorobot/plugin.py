@@ -102,16 +102,19 @@ class Plugin(ABC):
 
         return bot_manager.get_bot(get_bot_id())
 
-    def get_space(self):
+    def get_space(self, memory: bool = True):
         """获取当前插件在当前会话的 Space
 
-        每个插件在每个会话都有独立的内存 Space，可用于存储该会话的数据。
+        每个插件在每个会话都有独立的 Space，可用于存储该会话的数据。
         不在消息处理上下文中时返回 None。
+
+        Args:
+            memory: 是否使用内存模式，默认 True。False 则持久化到磁盘。
         """
         session_id = get_session_id()
         if not session_id:
             return None
-        return Space(self.name, session_id, memory=True)
+        return Space(self.name, session_id, memory=memory)
 
     async def send_message(
         self, content: str, session_id: str | None = None, bot_id: str | None = None

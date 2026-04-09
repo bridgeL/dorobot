@@ -1,15 +1,32 @@
 """示例插件集合"""
+from collections import Counter
 from loguru import logger
 from dorobot import Plugin, Message, register_plugin
 
 
-@register_plugin("hello", layer=1, description="问候插件", scope="private", active=True)
-class HelloPlugin(Plugin):
-    """1层插件示例 - 问候（共享层）"""
+@register_plugin("字频统计", layer=1, description="统计群里各成员的字频")
+class CharFreqPlugin(Plugin):
+    """1层插件示例 - 字频统计（共享层）"""
 
     async def handle_message(self, message: Message) -> bool:
-        if "你好" in message.content or "hello" in message.content.lower():
-            await self.send_message(f"👋 你好，{message.sender_name}！")
+        char_space = self.get_space(memory=False)
+
+        if message.content.strip() == "/result":
+            # 查看结果
+            if not char_space:
+                await self.send_message("暂无字频数据")
+            else:
+                top10 = Counter(dict(char_space)).most_common(10)
+                lines = [f"📊 本群字频 Top10："]
+                for i, (char, count) in enumerate(top10, 1):
+                    lines.append(f"  {i}.「{char}」×{count}")
+                await self.send_message("\n".join(lines))
+            return False
+
+        # 统计字频
+        for char in message.content:
+            if char.strip():
+                char_space[char] = char_space.get(char, 0) + 1
         return True
 
 
@@ -49,15 +66,3 @@ class GamePlugin(Plugin):
             # 不是数字，继续传递
             return True
 
-
-@register_plugin("回声", layer=3, description="回声插件：重复用户的消息", active=False)
-class EchoPlugin(Plugin):
-    """3层插件示例 - 回声（共享层）"""
-
-    async def on_activate(self):
-        self.activation_count = 0
-
-    async def handle_message(self, message: Message) -> bool:
-        self.activation_count += 1
-        await self.send_message(f"[回声] {message.content}")
-        return False  # 停止传递，测试使用

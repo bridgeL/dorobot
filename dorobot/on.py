@@ -10,13 +10,13 @@ from .plugin_manager import register_plugin
 from .config import global_config
 
 
-def on_command(cmd: str, description: str = "", layer: int = 1, name: str | None = None, scope: str | None = None, active: bool = True):
+def on_command(cmd: str, description: str = "", layer: int = 1, name: str | None = None, scope: str | None = None, active: bool = False):
     """快速创建命令插件的装饰器
 
     使用示例：
         @on_command("echo")
-        async def handle(message: Message, plugin: Plugin, args: str):
-            await plugin.send_message(args)
+        async def handle(message: Message, plugin: Plugin, arg: str):
+            await plugin.send_message(arg)
 
     Args:
         cmd: 命令字符串，如 "echo"
@@ -24,7 +24,7 @@ def on_command(cmd: str, description: str = "", layer: int = 1, name: str | None
         layer: 所属层级，默认 1
         name: 插件名称，默认使用函数名
         scope: 生效范围，None=全部, "private"=仅私聊, "group"=仅群聊
-        active: 是否默认激活，默认 True
+        active: 是否默认激活，默认 False
     """
     prefix = global_config.cmd_prefix
     full_cmd = f"{prefix}{cmd}"
@@ -38,8 +38,8 @@ def on_command(cmd: str, description: str = "", layer: int = 1, name: str | None
             async def handle_message(self, message: Message) -> bool:
                 stripped = message.content.strip()
                 if stripped == full_cmd or stripped.startswith(f"{full_cmd} "):
-                    args = stripped[len(full_cmd):].lstrip() if len(stripped) > len(full_cmd) else ""
-                    await func(message, self, args)
+                    arg = stripped[len(full_cmd):].lstrip() if len(stripped) > len(full_cmd) else ""
+                    await func(message, self, arg)
                     return False
                 return True
 
@@ -47,7 +47,7 @@ def on_command(cmd: str, description: str = "", layer: int = 1, name: str | None
     return decorator
 
 
-def on_keyword(keyword: str, description: str = "", layer: int = 1, name: str | None = None, scope: str | None = None, active: bool = True):
+def on_keyword(keyword: str, description: str = "", layer: int = 1, name: str | None = None, scope: str | None = None, active: bool = False):
     """快速创建关键词插件的装饰器
 
     使用示例：
@@ -61,7 +61,7 @@ def on_keyword(keyword: str, description: str = "", layer: int = 1, name: str | 
         layer: 所属层级，默认 1
         name: 插件名称，默认使用函数名
         scope: 生效范围，None=全部, "private"=仅私聊, "group"=仅群聊
-        active: 是否默认激活，默认 True
+        active: 是否默认激活，默认 False
     """
     def decorator(func: Callable[[Message, Plugin], Any]):
         plugin_name = name if name is not None else func.__name__
@@ -79,7 +79,7 @@ def on_keyword(keyword: str, description: str = "", layer: int = 1, name: str | 
     return decorator
 
 
-def on_pattern(pattern: str, description: str = "", layer: int = 1, name: str | None = None, scope: str | None = None, active: bool = True):
+def on_pattern(pattern: str, description: str = "", layer: int = 1, name: str | None = None, scope: str | None = None, active: bool = False):
     """快速创建正则匹配插件的装饰器
 
     使用示例：
@@ -93,7 +93,7 @@ def on_pattern(pattern: str, description: str = "", layer: int = 1, name: str | 
         layer: 所属层级，默认 1
         name: 插件名称，默认使用函数名
         scope: 生效范围，None=全部, "private"=仅私聊, "group"=仅群聊
-        active: 是否默认激活，默认 True
+        active: 是否默认激活，默认 False
     """
     def decorator(func: Callable[[Message, Plugin, Match[str]], Any]):
         plugin_name = name if name is not None else func.__name__
@@ -113,7 +113,7 @@ def on_pattern(pattern: str, description: str = "", layer: int = 1, name: str | 
     return decorator
 
 
-def on_message(description: str = "", layer: int = 3, name: str | None = None, scope: str | None = None, active: bool = True):
+def on_message(description: str = "", layer: int = 3, name: str | None = None, scope: str | None = None, active: bool = False):
     """快速创建通用消息处理插件的装饰器
 
     每次收到消息都会触发，适用于统计、监控等需要处理所有消息的场景。
@@ -128,7 +128,7 @@ def on_message(description: str = "", layer: int = 3, name: str | None = None, s
         layer: 所属层级，默认 3（兜底层）
         name: 插件名称，默认使用函数名
         scope: 生效范围，None=全部, "private"=仅私聊, "group"=仅群聊
-        active: 是否默认激活，默认 True
+        active: 是否默认激活，默认 False
     """
     def decorator(func: Callable[[Message, Plugin], Any]):
         plugin_name = name if name is not None else func.__name__
