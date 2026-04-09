@@ -461,33 +461,6 @@ session_id user_id content
 
 AITestAdapter 是基于 FastAPI 的 HTTP 测试服务器，支持通过 curl 命令模拟发送消息，适合 AI 自动化调试。
 
-详见 [AI 开发调试指南](ai-dev.md)。
-
-### 快速开始
-
-```bash
-# 启动测试服务器
-python test_server.py
-
-# 激活插件
-curl -X POST http://localhost:18765/activate \
-  --data-urlencode "session_id=group.test123" \
-  --data-urlencode "plugin_name=criminal_dance" \
-  --data-urlencode "layer=2"
-
-# 发送消息
-curl -X POST http://localhost:18765/msg \
-  --data-urlencode "session_id=group.test123" \
-  --data-urlencode "sender_id=user1" \
-  --data-urlencode "sender_name=用户1" \
-  --data-urlencode "content=创建房间"
-```
-
-### AI 开发飞轮
-
-```
-编写代码 → curl 测试 → 查看日志 → 修复问题 → 循环迭代
-```
+详见 [Skill:插件调试](.claude/skills/test-plugin/skill.md)
 
 AITestAdapter 让 AI 可以自主完成插件开发和调试闭环，大幅提升开发效率。
-
