@@ -7,9 +7,8 @@
 
 HTTP 接口:
   GET  /health                        - 健康检查
-  GET  /sessions                      - 列出会话
-  GET  /log                          - 获取最近日志
-  POST /msg                           - 发送消息
+  GET  /log?count=N                  - 获取最近 N 条日志
+  POST /msg                           - 发送消息（返回最近10条日志和当前时间）
 
 示例:
   curl http://localhost:18765/msg -d "sender_id=user1&sender_name=用户1&content=创建房间"
@@ -18,6 +17,7 @@ HTTP 接口:
 
 import asyncio
 import threading
+from datetime import datetime
 from pathlib import Path
 from typing import Optional
 from loguru import logger
@@ -64,6 +64,15 @@ class AITestAdapter(Adapter):
         app = FastAPI(title="AITest Server")
         self._app = app
 
+        def get_recent_logs(count: int = 10) -> list[str]:
+            """获取最近指定数量的日志"""
+            logs_dir = Path.cwd() / "logs"
+            ai_test_log = logs_dir / "ai_test.log"
+            if not ai_test_log.exists():
+                return []
+            lines = ai_test_log.read_text(encoding="utf-8").splitlines()
+            return lines[-count:] if len(lines) > count else lines
+
         @app.get("/health")
         async def health():
             return {"status": "ok"}
@@ -79,13 +88,7 @@ class AITestAdapter(Adapter):
                 日志列表
             """
             count = min(count, 100)
-            logs_dir = Path.cwd() / "logs"
-            ai_test_log = logs_dir / "ai_test.log"
-            if not ai_test_log.exists():
-                return {"logs": [], "count": 0}
-            # 读取最后 count 行
-            lines = ai_test_log.read_text(encoding="utf-8").splitlines()
-            recent_lines = lines[-count:] if len(lines) > count else lines
+            recent_lines = get_recent_logs(count)
             return {"logs": recent_lines, "count": len(recent_lines)}
 
         @app.post("/msg")
@@ -95,11 +98,11 @@ class AITestAdapter(Adapter):
             sender_name: str = Form("用户1"),
             content: str = Form(...)
         ):
-            from datetime import datetime
-            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
+            logger.debug(f"[AITest Msg] session={session_id}, sender={sender_name}({sender_id}), content={content}")
             await self._bot.send_test(session_id, sender_id, sender_name, content)
-            await asyncio.sleep(0.05)
-            return {"status": "ok", "msg": "msg received, however you need use log to check", "time": timestamp}
+            await asyncio.sleep(0.2)
+            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
+            return {"logs": get_recent_logs(10), "time": timestamp}
 
         # 在线程中启动 uvicorn 服务器
         def run_server():
