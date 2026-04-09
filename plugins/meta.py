@@ -3,11 +3,15 @@
 位于 0 层，负责处理 /meta 插件名 格式的命令，用于激活或关闭 1 层及以上的插件。
 """
 
-import dorobot.context as ctx
-from dorobot.plugin import Plugin, Message
-from dorobot.plugin_manager import register_plugin, plugin_manager
-from dorobot.bot_manager import bot_manager
-from dorobot.config import config
+from dorobot import (
+    ctx,
+    Plugin,
+    Message,
+    register_plugin,
+    plugin_manager,
+    bot_manager,
+    global_config,
+)
 
 
 @register_plugin("meta", layer=0, description="Meta插件：管理其他插件的激活/关闭")
@@ -31,7 +35,7 @@ class MetaPlugin(Plugin):
             return True
 
         content = message.content.strip()
-        prefix = config.cmd_prefix
+        prefix = global_config.cmd_prefix
 
         # 检查是否以命令前缀开头
         if not content.startswith(prefix):
@@ -50,7 +54,9 @@ class MetaPlugin(Plugin):
                 if plugin_name in registered:
                     meta = plugin_manager.get_plugin_metadata(plugin_name)
                     desc = meta.get("description", "") if meta else ""
-                    await self.send_message(f"📖 {plugin_name}：{desc if desc else '无描述'}")
+                    await self.send_message(
+                        f"📖 {plugin_name}：{desc if desc else '无描述'}"
+                    )
                     return False
             await self._show_help()
             return False
@@ -189,7 +195,7 @@ class MetaPlugin(Plugin):
 
     async def _show_help(self):
         """显示帮助信息"""
-        prefix = config.cmd_prefix
+        prefix = global_config.cmd_prefix
         lines = [
             "📖 DoroBot 帮助",
             "=" * 40,

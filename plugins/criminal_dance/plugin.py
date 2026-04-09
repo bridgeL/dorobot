@@ -9,33 +9,14 @@
 """
 
 from typing import Optional
-
-from dorobot import Plugin, Message, Space
-import dorobot.context as ctx
+from loguru import logger
+from dorobot import Plugin, Message, Space, register_plugin, ctx
 from .controller import CardPlayedMsg
 
 
+@register_plugin("criminal_dance", layer=2, description="犯罪舞蹈 - 狼人杀类推理社交游戏", scope="group", active=False)
 class CriminalDancePlugin(Plugin):
     """犯罪舞蹈游戏插件"""
-
-    def __init__(
-        self,
-        name: str = "criminal_dance",
-        layer: int = 2,
-        description: str = "犯罪舞蹈 - 狼人杀类推理社交游戏",
-        bots: list = None,
-        scope: str = "group",
-        default_active: bool = True,
-    ):
-        super().__init__(
-            name=name,
-            layer=layer,
-            description=description,
-            bots=bots,
-            scope=scope,
-            default_active=default_active,
-        )
-        pass  # 保留用于未来异步输入
 
     def _get_space(self, group_id: str) -> Space:
         """获取群聊对应的Space，用于存储房间和游戏数据"""
@@ -457,13 +438,3 @@ class CriminalDancePlugin(Plugin):
                 await self.send_message(str(msg))
         else:
             await self.send_message(str(msg))
-
-
-# 注册插件
-plugin_instance = CriminalDancePlugin()
-from dorobot.plugin_manager import plugin_manager
-plugin_manager.register(
-    "criminal_dance",
-    plugin_instance,
-    active=True
-)

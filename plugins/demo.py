@@ -1,9 +1,9 @@
 """示例插件集合"""
+from loguru import logger
+from dorobot import Plugin, Message, register_plugin
 
-from dorobot import Plugin, Message, register_plugin, logger, Space
 
-
-@register_plugin("hello", layer=1, description="问候插件", scope="private")
+@register_plugin("hello", layer=1, description="问候插件", scope="private", active=True)
 class HelloPlugin(Plugin):
     """1层插件示例 - 问候（共享层）"""
 
@@ -18,17 +18,14 @@ class GamePlugin(Plugin):
     """2层插件示例 - 游戏（独占层）"""
 
     async def on_activate(self):
-        session = self.get_session()
-        game_space = Space(self.name, session.session_id, memory=True)
-        game_space["target"] = 42
-        game_space["guesses"] = []
+        self.get_space()["target"] = 42
+        self.get_space()["guesses"] = []
         await self.send_message("游戏开始！请输入一个 0-99 的数字来猜数。")
 
     async def handle_message(self, message: Message) -> bool:
-        session = self.get_session()
-        game_space = Space(self.name, session.session_id, memory=True)
-        target = game_space["target"]
-        guesses: list = game_space["guesses"]
+        space = self.get_space()
+        target = space["target"]
+        guesses: list = space["guesses"]
 
         # 处理猜数字
         try:
@@ -44,7 +41,7 @@ class GamePlugin(Plugin):
                 logger.info(
                     f"Number guessed! Answer was {target}, {len(guesses)} attempts"
                 )
-                game_space["target"] = (target + 13) % 100  # 换一个新数字
+                space["target"] = (target + 13) % 100  # 换一个新数字
 
             return False  # 游戏处理完，中断传递
 
