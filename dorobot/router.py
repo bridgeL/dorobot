@@ -66,7 +66,7 @@ class MessageRouter:
             )
 
             content_preview = message.content[:50] + "..." if len(message.content) > 50 else message.content
-            logger.info(f"[Router] Routing message: bot={bot_id}, session={session_id}, sender={message.sender_name}, content='{content_preview}'")
+            logger.info(f"[Router] Routing message: bot={bot_id}, session={session_id}, sender={message.sender_name}({message.sender_id}), content='{content_preview}'")
             result = await session.handle_message(message)
             return result
         finally:

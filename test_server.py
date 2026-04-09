@@ -25,7 +25,7 @@ from dorobot.adapter_manager import adapter_manager
 
 async def main():
     # 初始化
-    init_logging(level="INFO")
+    init_logging(level="DEBUG")
     init_space()
     load_plugins()
 

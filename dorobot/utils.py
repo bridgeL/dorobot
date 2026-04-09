@@ -69,29 +69,28 @@ def load_plugins():
 
     logger.info(f"Loading plugins from: {plugins_dir}")
 
-    # 收集要加载的插件: (file_path, module_name)
+    # 收集要加载的插件: (module_name)
     plugins_to_load = []
 
     # 扫描根目录插件: plugins/*.py
     for f in plugins_dir.glob("*.py"):
         if not f.name.startswith("_"):
-            plugins_to_load.append((f, f"plugins.{f.stem}"))
+            plugins_to_load.append(f"plugins.{f.stem}")
 
-    # 扫描子目录插件: plugins/*/plugin.py
+    # 扫描子目录插件: plugins/*/__init__.py
     for subdir in plugins_dir.iterdir():
-        if subdir.is_dir() and not subdir.name.startswith("_"):
-            plugin_file = subdir / "plugin.py"
-            if plugin_file.exists():
-                plugins_to_load.append((plugin_file, f"plugins.{subdir.name}"))
+        # 如果有__init__.py，说明这是一个包，可以直接加载
+        if subdir.is_dir() and not subdir.name.startswith("_") and (subdir / "__init__.py").exists():
+            plugins_to_load.append(f"plugins.{subdir.name}")
 
     loaded = []
-    for file_path, module_name in sorted(plugins_to_load):
+    for module_name in sorted(plugins_to_load):
         try:
-            logger.debug(f"Loading plugin module: {file_path.name}")
+            logger.debug(f"Loading plugin module: {module_name}")
             importlib.import_module(module_name)
-            loaded.append(file_path.stem)
+            loaded.append(module_name)
         except Exception as e:
-            logger.error(f"Failed to load plugin {file_path.name}: {e}")
+            logger.error(f"Failed to load plugin {module_name}: {e}")
 
     return loaded
 

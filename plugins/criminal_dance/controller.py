@@ -41,12 +41,16 @@ class PlayCardController(Controller):
         # 从手牌中移除这张牌并打出
         player.cards.remove(card)
 
+        # 记录当前 controller，card.play() 可能改变它
+        original_controller = game.controller
+
         # 打出牌并通知
         await self.game.notify(CardPlayedMsg(player, card.name, target))
         await card.play(player, target)
 
-        if isinstance(game.controller, PlayCardController):
-            # 如果当前控制器是 PlayCardController，则切换到下一个玩家
+        # 只在 controller 没被替换时，才由当前 controller 推进轮次
+        # 如果 card.play() 改变了 controller（如情报交换、谣言等），新的 controller 会自己处理
+        if game.controller is original_controller:
             await game.next_turn()
 
         return True

@@ -15,7 +15,7 @@ from dorobot.space import Space
 from .controller import CardPlayedMsg
 
 
-@register_plugin("criminal_dance", layer=2, description="犯罪舞蹈 - 狼人杀类推理社交游戏", scope=None, active=True)
+@register_plugin("criminal_dance", layer=2, description="犯罪舞蹈 - 狼人杀类推理社交游戏", scope=None)
 class CriminalDancePlugin(Plugin):
     """犯罪舞蹈游戏插件"""
 
@@ -275,11 +275,22 @@ class CriminalDancePlugin(Plugin):
             await self.send_message("游戏数据异常")
             return False
 
-        # 找到当前玩家
-        current_player = game.current_player
-        if not hasattr(current_player, "player_id") or current_player.player_id != message.sender_id:
-            await self.send_message("还没轮到你出牌")
-            return False
+        # 找到当前玩家（只在普通出牌阶段检查轮次）
+        current_player = None
+        if type(game.controller).__name__ == "PlayCardController":
+            if not hasattr(game.current_player, "player_id") or game.current_player.player_id != message.sender_id:
+                await self.send_message("还没轮到你出牌")
+                return False
+            current_player = game.current_player
+        else:
+            # 非普通出牌阶段（如交易、情报交换），直接从 sender_id 找玩家
+            for p in game.players:
+                if hasattr(p, "player_id") and p.player_id == message.sender_id:
+                    current_player = p
+                    break
+            if not current_player:
+                await self.send_message("你不在游戏中")
+                return False
 
         # 解析出牌命令
         content = message.content.strip()
@@ -309,24 +320,20 @@ class CriminalDancePlugin(Plugin):
             await self.send_message(f"你没有这张牌: {card_name}")
             return False
 
-        # 检查是否可以打出
-        flag, reason = card.can_play(current_player, target)
-        if not flag:
-            await self.send_message(f"无法出牌: {reason}")
-            return False
+        # 检查是否可以打出（只在普通出牌阶段检查，特牌controller会自己检查）
+        if type(game.controller).__name__ == "PlayCardController":
+            flag, reason = card.can_play(current_player, target)
+            if not flag:
+                await self.send_message(f"无法出牌: {reason}")
+                return False
 
-        # 执行出牌
-        current_player.cards.remove(card)
-        await game.notify(CardPlayedMsg(current_player, card.name, target))
-        await card.play(current_player, target)
+        # 通过 controller 处理出牌（统一处理轮次推进和卡牌移除）
+        result = await game.controller.handle(current_player, card, target)
 
         if game.is_end:
             # 游戏结束
             room["status"] = "ended"
             self._save_room( room)
-        elif type(game.controller).__name__ == "PlayCardController":
-            # 正常出牌，切换到下一个玩家
-            await game.next_turn()
 
         return False
 
