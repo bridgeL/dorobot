@@ -8,7 +8,7 @@ from loguru import logger
 
 def init_space():
     """初始化 Space 持久化，从磁盘加载数据"""
-    from dorobot.space_manager import space_manager
+    from .space_manager import space_manager
     space_manager.init()
 
 
@@ -42,10 +42,10 @@ def init_logging(
     logs_dir.mkdir(exist_ok=True)
 
     logger.add(
-        logs_dir / "bot.log",
+        logs_dir / "bot.{time:YYYY-MM-DD}.log",
         format=format_str,
         level=level,
-        rotation="00:00",  # 每天午夜轮转
+        rotation="1 day",  # 每天轮转
         retention="30 days",  # 保留30天
         compression="zip"  # 压缩旧日志
     )
@@ -87,8 +87,8 @@ def load_plugins():
     loaded = []
     for file_path, module_name in sorted(plugins_to_load):
         try:
+            logger.debug(f"Loading plugin module: {file_path.name}")
             importlib.import_module(module_name)
-            logger.info(f"Loaded plugin module: {file_path.name}")
             loaded.append(file_path.stem)
         except Exception as e:
             logger.error(f"Failed to load plugin {file_path.name}: {e}")
@@ -98,8 +98,8 @@ def load_plugins():
 
 def run():
     """启动 DoroBot，阻塞直到收到 KeyboardInterrupt"""
-    from dorobot.adapter_manager import adapter_manager
-    from dorobot.space_manager import space_manager
+    from .adapter_manager import adapter_manager
+    from .space_manager import space_manager
 
     async def _run():
         logger.info("=" * 50)

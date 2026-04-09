@@ -36,7 +36,7 @@ class Space(dict):
         self._memory = memory
         # memory 模式不注册到 manager，不参与持久化
         if not memory:
-            from dorobot.space_manager import space_manager
+            from .space_manager import space_manager
             space_manager.register(self)
 
     @property

@@ -2,7 +2,7 @@
 
 from dorobot import init_logging, load_plugins, run, register_adapter, init_space
 
-init_logging(level="DEBUG")
+init_logging(level="INFO")
 init_space()
 load_plugins()
 

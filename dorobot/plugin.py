@@ -5,7 +5,8 @@ from dataclasses import dataclass
 from typing import Optional
 from loguru import logger
 
-import dorobot.context as ctx
+from .context import get_bot_id, get_session_id
+from .space import Space
 
 
 @dataclass
@@ -73,15 +74,23 @@ class Plugin(ABC):
         """
         pass
 
+    def on_deactivate(self):
+        """插件被关闭时调用
+
+        子类可重写此方法，在插件被关闭时执行清理逻辑。
+        例如：保存状态、释放资源等。
+        """
+        pass
+
     def get_session(self):
         """获取当前 Session 对象
 
         插件可以通过此方法获取当前会话，读写 session.data。
         不在消息处理上下文中时返回 None。
         """
-        from dorobot.session_manager import session_manager
+        from .session_manager import session_manager
 
-        return session_manager.get_session(ctx.get_session_id())
+        return session_manager.get_session(get_session_id())
 
     def get_bot(self):
         """获取当前 Bot 对象
@@ -89,9 +98,20 @@ class Plugin(ABC):
         插件可以通过此方法获取当前 Bot 实例。
         不在消息处理上下文中时返回 None。
         """
-        from dorobot.bot_manager import bot_manager
+        from .bot_manager import bot_manager
 
-        return bot_manager.get_bot(ctx.get_bot_id())
+        return bot_manager.get_bot(get_bot_id())
+
+    def get_space(self):
+        """获取当前插件在当前会话的 Space
+
+        每个插件在每个会话都有独立的内存 Space，可用于存储该会话的数据。
+        不在消息处理上下文中时返回 None。
+        """
+        session_id = get_session_id()
+        if not session_id:
+            return None
+        return Space(self.name, session_id, memory=True)
 
     async def send_message(
         self, content: str, session_id: str | None = None, bot_id: str | None = None
@@ -105,10 +125,10 @@ class Plugin(ABC):
             session_id: 目标会话ID，None 则使用当前上下文中的 session_id
             bot_id: Bot 的唯一标识，None 则从上下文获取
         """
-        from dorobot.bot_manager import bot_manager
+        from .bot_manager import bot_manager
 
         if bot_id is None:
-            bot_id = ctx.get_bot_id()
+            bot_id = get_bot_id()
 
         if not bot_id:
             logger.warning(
@@ -117,7 +137,7 @@ class Plugin(ABC):
             return
 
         if session_id is None:
-            session_id = ctx.get_session_id()
+            session_id = get_session_id()
 
         if not session_id:
             logger.warning(

@@ -14,4 +14,4 @@ class Config:
 
 
 # 全局配置实例
-config = Config()
+global_config = Config()

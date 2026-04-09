@@ -2,7 +2,7 @@
 from typing import Optional
 from loguru import logger
 
-from dorobot.session import Session
+from .session import Session
 
 
 class SessionManager:

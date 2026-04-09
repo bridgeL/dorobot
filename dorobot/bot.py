@@ -55,7 +55,7 @@ class Bot(ABC):
             session_id: 会话ID
             message_data: 消息数据字典，包含 content, sender_id, sender_name, msg_type 等
         """
-        from dorobot.router import router
+        from .router import router
         await router.handle_message(self.self_id, session_id, message_data)
 
     @abstractmethod

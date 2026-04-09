@@ -1,21 +1,22 @@
 """DoroBot - 多插件聊天机器人核心库"""
 
-from dorobot.plugin import Plugin, Message
-from dorobot.layer import Layer
-from dorobot.session import Session
-from dorobot.session_manager import SessionManager, session_manager
-from dorobot.plugin_manager import PluginManager, plugin_manager, register_plugin
-from dorobot.router import MessageRouter, router
-from dorobot.bot import Bot
-from dorobot.adapter import Adapter
-from dorobot.bot_manager import BotManager, bot_manager
-from dorobot.adapter_manager import AdapterManager, adapter_manager
-from dorobot.utils import init_logging, load_plugins, run, init_space
-from dorobot import context as ctx
-from dorobot.on import on_command, on_keyword, on_pattern, on_message
-from dorobot.space import Space
-from dorobot.space_manager import SpaceManager, space_manager
-from loguru import logger
+from .plugin import Plugin, Message
+from .layer import Layer
+from .session import Session
+from .session_manager import SessionManager, session_manager
+from .plugin_manager import PluginManager, plugin_manager, register_plugin
+from .router import MessageRouter, router
+from .bot import Bot
+from .adapter import Adapter
+from .bot_manager import BotManager, bot_manager
+from .adapter_manager import AdapterManager, adapter_manager
+from .utils import init_logging, load_plugins, run, init_space
+from . import context as ctx
+from .on import on_command, on_keyword, on_pattern, on_message
+from .space import Space
+from .space_manager import SpaceManager, space_manager
+from .config import global_config
+from .app_plugin import AppPlugin
 
 def register_adapter(adapter: Adapter) -> bool:
     """注册适配器

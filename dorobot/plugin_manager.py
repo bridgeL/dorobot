@@ -5,7 +5,7 @@
 from typing import Optional
 from loguru import logger
 
-from dorobot.plugin import Plugin
+from .plugin import Plugin
 
 
 class PluginManager:
@@ -34,7 +34,7 @@ class PluginManager:
             return False
 
         self._plugin_instances[name] = plugin_instance
-        logger.info(f"Registered plugin: {name} (layer={plugin_instance.layer}) - {plugin_instance.description}")
+        logger.info(f"Registered Plugin: {name}")
 
         # 自动激活
         if active:
@@ -44,7 +44,7 @@ class PluginManager:
 
     def _activate_all(self, plugin_name: str, layer_id: int):
         """在所有已有 session 中激活插件"""
-        from dorobot.session_manager import session_manager
+        from .session_manager import session_manager
         for session_id in session_manager.list_sessions():
             session = session_manager.get_session(session_id)
             if session:
@@ -88,7 +88,7 @@ class PluginManager:
 plugin_manager = PluginManager()
 
 
-def register_plugin(name: str, layer: int = 0, description: str = "", bots: list[type] | None = None, scope: str | None = None, active: bool = True):
+def register_plugin(name: str, layer: int = 0, description: str = "", bots: list[type] | None = None, scope: str | None = None, active: bool = False):
     """装饰器：注册插件类
 
     使用示例：
@@ -104,7 +104,7 @@ def register_plugin(name: str, layer: int = 0, description: str = "", bots: list
         description: 插件描述
         bots: 允许使用该插件的 Bot 类型列表
         scope: 生效范围，None=全部, "private"=仅私聊, "group"=仅群聊
-        active: 是否默认激活，默认 True
+        active: 是否默认激活，默认 False
     """
     def decorator(cls: type[Plugin]):
         # 立即创建插件实例并注册

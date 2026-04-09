@@ -5,9 +5,9 @@
 """
 from loguru import logger
 
-from dorobot.plugin import Message
-from dorobot.session_manager import session_manager
-import dorobot.context as ctx
+from .plugin import Message
+from .session_manager import session_manager
+from . import context
 
 
 class MessageRouter:
@@ -29,7 +29,6 @@ class MessageRouter:
     def __init__(self):
         """初始化消息路由器"""
         self._session_manager = session_manager
-        logger.info("MessageRouter initialized")
 
     async def handle_message(self, bot_id: str, session_id: str, message_data: dict) -> bool:
         """处理 Bot 发来的消息
@@ -45,8 +44,8 @@ class MessageRouter:
             bool: 消息是否被完全处理
         """
         # 设置上下文变量
-        ctx.bot_id.set(bot_id)
-        ctx.session_id.set(session_id)
+        context.bot_id.set(bot_id)
+        context.session_id.set(session_id)
 
         try:
             # 通过 SessionManager 获取或创建会话

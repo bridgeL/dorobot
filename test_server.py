@@ -19,7 +19,7 @@ HTTP 接口:
 import asyncio
 
 from dorobot import init_logging, load_plugins, init_space
-from dorobot.adapters.aitest import AITestAdapter
+from dorobot.adapters.ai_test import AITestAdapter
 from dorobot.adapter_manager import adapter_manager
 
 
@@ -34,8 +34,6 @@ async def main():
 
     # 启动所有适配器
     await adapter_manager.start_all()
-
-    print("Test server running. Press Ctrl+C to stop.")
     try:
         while True:
             await asyncio.sleep(3600)

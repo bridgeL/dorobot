@@ -2,10 +2,12 @@
 
 from collections.abc import Callable
 from typing import Any
+import re
+from re import Match
 
-from dorobot.plugin import Plugin, Message
-from dorobot.plugin_manager import register_plugin
-from dorobot.config import config
+from .plugin import Plugin, Message
+from .plugin_manager import register_plugin
+from .config import global_config
 
 
 def on_command(cmd: str, description: str = "", layer: int = 1, name: str | None = None, scope: str | None = None, active: bool = True):
@@ -24,7 +26,7 @@ def on_command(cmd: str, description: str = "", layer: int = 1, name: str | None
         scope: 生效范围，None=全部, "private"=仅私聊, "group"=仅群聊
         active: 是否默认激活，默认 True
     """
-    prefix = config.cmd_prefix
+    prefix = global_config.cmd_prefix
     full_cmd = f"{prefix}{cmd}"
 
     def decorator(func: Callable[[Message, Plugin, str], Any]):
@@ -93,9 +95,6 @@ def on_pattern(pattern: str, description: str = "", layer: int = 1, name: str | 
         scope: 生效范围，None=全部, "private"=仅私聊, "group"=仅群聊
         active: 是否默认激活，默认 True
     """
-    import re
-    from re import Match
-
     def decorator(func: Callable[[Message, Plugin, Match[str]], Any]):
         plugin_name = name if name is not None else func.__name__
         desc = description if description else (func.__doc__ or "").strip().split("\n")[0]

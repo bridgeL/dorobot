@@ -7,7 +7,7 @@ from typing import Optional, Type
 import asyncio
 from loguru import logger
 
-from dorobot.bot import Bot
+from .bot import Bot
 
 
 class BotManager:

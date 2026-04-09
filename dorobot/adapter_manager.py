@@ -1,6 +1,6 @@
 import asyncio
 from loguru import logger
-from dorobot.adapter import Adapter
+from .adapter import Adapter
 
 
 class AdapterManager:
@@ -14,7 +14,7 @@ class AdapterManager:
             return False
 
         self._adapters[name] = adapter
-        logger.info(f"Adapter {name} registered")
+        logger.info(f"Registered Adapter: {name}")
 
         return True
 

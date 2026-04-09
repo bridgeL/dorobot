@@ -3,7 +3,7 @@
 import asyncio
 from pathlib import Path
 
-from dorobot.space import Space
+from .space import Space
 
 
 class SpaceManager:

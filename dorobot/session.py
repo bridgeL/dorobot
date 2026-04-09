@@ -4,14 +4,14 @@ from typing import Optional
 import asyncio
 from loguru import logger
 
-import dorobot.context as ctx
-from dorobot.plugin import Plugin, Message
-from dorobot.layer import (
+from . import context as ctx
+from .plugin import Plugin, Message
+from .layer import (
     Layer,
     layer_prototype,
 )
-from dorobot.plugin_manager import plugin_manager
-from dorobot.bot_manager import bot_manager
+from .plugin_manager import plugin_manager
+from .bot_manager import bot_manager
 
 
 class Session:
@@ -48,6 +48,8 @@ class Session:
         self.user_id = user_id
         # 从原型复制 layer 结构
         self._layers: dict[int, Layer] = layer_prototype.create_layers()
+        # 记录哪些插件已调用过 on_activate
+        self._on_activated_plugins: set[str] = set()
         # 自动激活 default_active 的插件
         self._activate_default_plugins()
 
@@ -55,7 +57,14 @@ class Session:
         """激活所有默认激活的插件"""
         for name in plugin_manager.list_plugins():
             plugin = plugin_manager.get_plugin(name)
-            if plugin and plugin.default_active and plugin.layer != 2:
+            if plugin is None:
+                continue
+            # Layer 0 插件（meta层）始终自动激活
+            if plugin.layer == 0:
+                layer = self._layers.get(0)
+                if layer and layer.can_activate(name):
+                    layer.activate_plugin(name, self.session_id, silent=True)
+            elif plugin.default_active:
                 layer = self._layers.get(plugin.layer)
                 if layer and layer.can_activate(name):
                     layer.activate_plugin(name, self.session_id, silent=True)
@@ -86,14 +95,6 @@ class Session:
                 f"会话中不存在第 {layer_id} 层"
             )
         result = layer.activate_plugin(plugin_name, self.session_id, silent=silent)
-        if result:
-            # 调用插件的 on_activate 方法
-            plugin = plugin_manager.get_plugin(plugin_name)
-            if plugin:
-                try:
-                    await plugin.on_activate()
-                except Exception as e:
-                    logger.error(f"Plugin {plugin_name} on_activate failed: {e}")
         return result
 
     def deactivate_plugin(self, plugin_name: str, layer_id: int) -> bool:
@@ -115,6 +116,13 @@ class Session:
                 f"会话中不存在第 {layer_id} 层"
             )
         result = layer.deactivate_plugin(plugin_name, self.session_id)
+        # 调用插件的 on_deactivate 方法
+        plugin = plugin_manager.get_plugin(plugin_name)
+        if plugin:
+            try:
+                plugin.on_deactivate()
+            except Exception as e:
+                logger.error(f"Plugin {plugin_name} on_deactivate failed: {e}")
         return result
 
     def deactivate_all_plugins(self):
@@ -171,6 +179,13 @@ class Session:
                     if plugin.scope is not None and plugin.scope != self.type:
                         logger.debug(f"[Session] Plugin({name}) skipped for scope {self.type}")
                         continue
+                    # 首次激活时调用 on_activate
+                    if name not in self._on_activated_plugins:
+                        self._on_activated_plugins.add(name)
+                        try:
+                            await plugin.on_activate()
+                        except Exception as e:
+                            logger.error(f"Plugin {name} on_activate failed: {e}")
                     active_plugins.append(plugin)
                 else:
                     logger.warning(
