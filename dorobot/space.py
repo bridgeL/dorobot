@@ -29,6 +29,11 @@ class Space(dict):
             *names: 空间路径部分，如 Space("a", "b", "c") -> space/a/b/c.json
             memory: 为 True 时不持久化到磁盘，也不从磁盘加载
         """
+        # 如果实例已存在且已有数据，不要重复初始化（避免清空数据）
+        key = "/".join(names)
+        if key in self._instances and len(self) > 0:
+            return
+
         super().__init__()
         self._names = names
         self._key = "/".join(names)

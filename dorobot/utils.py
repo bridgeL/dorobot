@@ -42,7 +42,7 @@ def init_logging(
     logs_dir.mkdir(exist_ok=True)
 
     logger.add(
-        logs_dir / "bot.{time:YYYY-MM-DD}.log",
+        logs_dir / "{time:YYYY-MM-DD}.log",
         format=format_str,
         level=level,
         rotation="1 day",  # 每天轮转
