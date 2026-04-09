@@ -15,7 +15,9 @@ class ExchangeInfoCard(Card):
         # 所有有手牌的玩家参与情报交换
         players = [p for p in game.players if p.cards]
 
-        await game.notify(ExchangeStartHintMsg(players))
+        # 通过私聊分别提示每个玩家
+        for p in players:
+            await game.notify(ExchangeStartHintMsg([p]), p)
         game.controller = ExchangeInfoController(game, players)
 
 

@@ -46,8 +46,65 @@ class CriminalDancePlugin(Plugin):
         # 私聊需要检查是否有 group_space 映射
         if session.type == "private":
             space = self.get_space()
-            if not space.get(f"{self.name}_group_space"):
+            group_space = space.get(f"{self.name}_group_space")
+            if not group_space:
                 return True  # 私聊但没有对应的群聊游戏，不处理
+
+            # 私聊出牌消息，转到群聊游戏处理
+            content = message.content.strip()
+            if content.startswith("出牌"):
+                room = group_space.get("room")
+                if not room or room.get("status") != "playing":
+                    await self.send_message("当前不在游戏中")
+                    return False
+                game = room.get("game")
+                if not game:
+                    await self.send_message("游戏未初始化")
+                    return False
+
+                # 找到发送者对应的玩家
+                player = None
+                for p in game.players:
+                    if hasattr(p, "player_id") and p.player_id == message.sender_id:
+                        player = p
+                        break
+                if not player:
+                    await self.send_message("你不在游戏中")
+                    return False
+
+                # 解析出牌命令
+                parts = content.split()
+                if len(parts) < 2:
+                    await self.send_message("格式错误，请使用: 出牌 牌名 [@目标]")
+                    return False
+                card_name = parts[1]
+
+                # 查找目标
+                target = None
+                if len(parts) >= 3 and parts[2].startswith("@"):
+                    target_id = parts[2][1:]
+                    for p in game.players:
+                        if hasattr(p, "player_id") and str(p.player_id) == target_id:
+                            target = p
+                            break
+
+                # 查找手牌
+                card = player.get_card(card_name)
+                if not card:
+                    await self.send_message(f"你没有这张牌: {card_name}")
+                    return False
+
+                # 通过 controller 处理
+                result = await game.controller.handle(player, card, target)
+
+                if game.is_end:
+                    room["status"] = "ended"
+                    group_space["room"] = room
+
+                return False
+
+            # 私聊中的其他命令（如手牌）使用群聊的 room
+            return await self._cmd_handcard_from_private(message, group_space)
 
         group_id = session.group_id or message.sender_id
         content = message.content.strip()
@@ -209,9 +266,15 @@ class CriminalDancePlugin(Plugin):
 
         # 建立玩家私聊会话 -> 群聊 space 的映射
         group_space = self.get_space()
+        from dorobot.session_manager import session_manager
         for player_id, _ in room["players"]:
             private_space = Space(self.name, f"private.{player_id}", memory=True)
             private_space[f"{self.name}_group_space"] = group_space
+            # 在私聊会话中激活插件（第2层不会自动激活）
+            private_session = await session_manager.get_or_create_session(
+                f"private.{player_id}", type="private", user_id=player_id
+            )
+            await private_session.activate_plugin(self.name, self.layer)
 
         room["game"] = game
         room["status"] = "playing"
@@ -407,6 +470,40 @@ class CriminalDancePlugin(Plugin):
         )
         await self._send_private(player.player_id, text)
         await self.send_message(f"已通过私聊发送你的手牌给 @{player.player_name}")
+        return False
+
+    async def _cmd_handcard_from_private(self, message: Message, group_space: dict) -> bool:
+        """查询自己的手牌（从私聊会话，通过 group_space）"""
+        room = group_space.get("room")
+        if not room or room.get("status") != "playing":
+            await self.send_message("当前不在游戏中")
+            return False
+
+        game = room.get("game")
+        if not game:
+            await self.send_message("游戏未初始化")
+            return False
+
+        # 找到当前玩家的手牌
+        player = None
+        for p in game.players:
+            if p.player_id == message.sender_id:
+                player = p
+                break
+
+        if not player:
+            await self.send_message("你不在游戏中")
+            return False
+
+        # 通过私聊发送手牌
+        cards_text = "\n".join(f"{i+1}. {c.name} - {c.desc}" for i, c in enumerate(player.cards))
+        text = (
+            f"🎴 你的手牌 ({game.num_players}人局)\n"
+            f"{cards_text}\n\n"
+            f"轮到你时发送: 出牌 牌名 [@目标]"
+        )
+        await self._send_private(player.player_id, text)
+        await self.send_message(f"已通过私聊发送你的手牌")
         return False
 
     # ==================== 游戏通知回调 ====================

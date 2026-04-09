@@ -1,11 +1,11 @@
 import random
 from typing import Optional
+from loguru import logger
 from .card import Card
 from .controller import Controller, PlayCardController
 from .msg import Msg
 from .player import Player
 from .cards import *
-
 
 class Game:
     def reset(self, num_players: int):
@@ -30,7 +30,7 @@ class Game:
                 self.current_player_index = i % self.num_players
 
         # 打印游戏状态
-        print(self)
+        logger.debug(self)
 
         # 游戏开始，告知所有人玩家数量以及自己的编号和手牌
         for player in self.players:
@@ -202,7 +202,7 @@ class Game:
                 self.plugin._save_room(room)
 
         # 打印游戏状态
-        print(self)
+        logger.debug(self)
 
     async def bad_win(self):
         self.is_end = True
@@ -220,9 +220,9 @@ class Game:
         if self.plugin:
             await self.plugin.notify_game(msg, target)
         elif not target:
-            print("[公共消息]", msg)
+            logger.debug(f"[公共消息] {msg}")
         else:
-            print("[私聊消息]", f"@{target.player_name}", msg)
+            logger.debug(f"[私聊消息] @{target.player_name} {msg}")
 
     def __str__(self):
         s = "\n".join("\t" + str(player) for player in self.players)
