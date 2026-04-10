@@ -4,7 +4,7 @@
 """
 
 from dorobot import (
-    ctx,
+    context,
     Plugin,
     Message,
     register_plugin,
@@ -88,7 +88,7 @@ class MetaPlugin(Plugin):
         bots = meta.get("bots") if meta else None
 
         # 检查插件是否允许当前 Bot 类型
-        current_bot_id = ctx.get_bot_id()
+        current_bot_id = context.get_bot_id()
         current_bot = bot_manager.get_bot(current_bot_id) if current_bot_id else None
         if bots is not None and current_bot is not None:
             if not any(isinstance(current_bot, bot_type) for bot_type in bots):
@@ -132,7 +132,7 @@ class MetaPlugin(Plugin):
             return
 
         # 获取当前 Bot 实例
-        current_bot_id = ctx.get_bot_id()
+        current_bot_id = context.get_bot_id()
         current_bot = bot_manager.get_bot(current_bot_id) if current_bot_id else None
 
         # 获取所有已注册的插件

@@ -4,7 +4,7 @@ from .msg import Msg
 from .player import Player
 
 if TYPE_CHECKING:
-    from .game import Game
+    from .game_core import Game
 
 
 class Controller:

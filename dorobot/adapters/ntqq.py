@@ -9,6 +9,7 @@ from websockets import ServerConnection
 from dorobot.bot import Bot
 from dorobot.adapter import Adapter
 from dorobot.bot_manager import bot_manager
+from dorobot.message import Message
 
 
 class NTQQAdapter(Adapter):
@@ -34,16 +35,20 @@ class NTQQAdapter(Adapter):
         bot = NTQQBot(self_id=client_id)
         bot._websocket = websocket
 
-        logger.info(f"[NTQQ] Client connected: {client_id} ({websocket.remote_address})")
+        logger.info(
+            f"[NTQQ] Client connected: {client_id} ({websocket.remote_address})"
+        )
 
         try:
             async for message in websocket:
                 try:
                     data = json.loads(message)
 
-                    if (data.get("post_type") == "meta_event" and 
-                        data.get("meta_event_type") == "lifecycle" and 
-                        data.get("sub_type") == "connect"):
+                    if (
+                        data.get("post_type") == "meta_event"
+                        and data.get("meta_event_type") == "lifecycle"
+                        and data.get("sub_type") == "connect"
+                    ):
                         self_id = str(data.get("self_id", client_id))
                         bot.self_id = f"ntqq.{self_id}"
                         self._register_bot(bot)
@@ -69,7 +74,9 @@ class NTQQAdapter(Adapter):
             self.host,
             self.port,
         )
-        logger.info(f"[NTQQ] Server started, listening on: ws://{self.host}:{self.port}")
+        logger.info(
+            f"[NTQQ] Server started, listening on: ws://{self.host}:{self.port}"
+        )
         logger.info("[NTQQ] Waiting for connections...")
 
     async def stop(self):
@@ -86,7 +93,9 @@ class NTQQBot(Bot):
         self._websocket: ServerConnection | None = None
         self._pending_requests: dict[str, asyncio.Future] = {}
 
-    async def call_api(self, action: str, data: dict | None = None, timeout: float = 5.0) -> dict | None:
+    async def call_api(
+        self, action: str, data: dict | None = None, timeout: float = 5.0
+    ) -> dict | None:
         if not self._websocket:
             logger.error(f"[Bot] {self.self_id} 未连接，无法发送消息")
             return None
@@ -105,7 +114,9 @@ class NTQQBot(Bot):
             await self._websocket.send(json.dumps(message))
             logger.debug(f"[Bot] {self.self_id} sent {action}: {request_id}")
             result = await asyncio.wait_for(future, timeout=timeout)
-            logger.debug(f"[Bot] {self.self_id} received response for {request_id}: {result}")
+            logger.debug(
+                f"[Bot] {self.self_id} received response for {request_id}: {result}"
+            )
             return result
         except asyncio.TimeoutError:
             logger.warning(f"[Bot] {self.self_id} request {request_id} timeout")
@@ -157,7 +168,7 @@ class NTQQBot(Bot):
 
         if post_type == "meta_event" and data.get("meta_event_type") == "heartbeat":
             return
-        
+
         logger.info(f"[NTQQ] Received message: {data}")
 
         if post_type == "message":
@@ -175,14 +186,15 @@ class NTQQBot(Bot):
             session_type = "private"
             session_id = f"ntqq.private.{user_id}"
 
-        message_content = data.get("raw_message") or self._extract_message_content(data.get("message", []))
+        message_content = data.get("raw_message") or self._extract_message_content(
+            data.get("message", [])
+        )
 
         sender = data.get("sender", {})
         sender_name = sender.get("card") or sender.get("nickname") or user_id
 
         logger.debug(f"NTQQ message [{session_id}/{user_id}]: {message_content[:50]}")
 
-        from dorobot.message import Message
         msg = Message(
             content=message_content,
             sender_id=user_id,

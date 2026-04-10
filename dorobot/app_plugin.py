@@ -1,35 +1,6 @@
 """AppPlugin - 基于状态的插件框架
 
 提供一组装饰器来注册不同状态下的处理函数，简化插件开发。
-
-使用示例：
-
-    from .app_plugin import AppPlugin
-
-    app = AppPlugin(name="my_app", description="我的应用", scope="group")
-
-    @app.on_open()
-    async def on_open():
-        print("插件启动了，状态为空")
-
-    @app.on_close()
-    async def on_close():
-        print("插件关闭了")
-
-    @app.on_command("room", "game")
-    async def start_game(message, args):
-        print("在 room 状态下收到 game 命令")
-        app.set_state("game")
-
-    @app.on_command("game", "play")
-    async def play(message, args):
-        print("在 game 状态下收到 play 命令")
-
-    @app.on_keyword("game", "帮助")
-    async def help(message):
-        print("在 game 状态下收到帮助关键词")
-
-    app.register()
 """
 import re
 from typing import Callable, Optional
@@ -39,6 +10,7 @@ from .message import Message
 from .plugin import Plugin
 from .config import global_config
 from .context import get_session_id
+from .plugin_manager import plugin_manager
 
 
 class AppPlugin(Plugin):
@@ -337,5 +309,4 @@ class AppPlugin(Plugin):
 
     def register(self):
         """注册插件到插件管理器"""
-        from .plugin_manager import plugin_manager
         plugin_manager.register(self.name, self, active=self.default_active)

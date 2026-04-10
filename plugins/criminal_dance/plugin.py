@@ -10,12 +10,12 @@
 
 from typing import Optional
 from loguru import logger
-from dorobot import Plugin, Message, register_plugin, ctx
-from dorobot.space import Space
-from .controller import CardPlayedMsg
+from dorobot import Plugin, Message, register_plugin, context, Space, bot_manager
 
 
-@register_plugin("criminal_dance", layer=2, description="犯罪舞蹈 - 狼人杀类推理社交游戏", scope=None)
+@register_plugin(
+    "criminal_dance", layer=2, description="犯罪舞蹈 - 狼人杀类推理社交游戏", scope=None
+)
 class CriminalDancePlugin(Plugin):
     """犯罪舞蹈游戏插件"""
 
@@ -156,7 +156,7 @@ class CriminalDancePlugin(Plugin):
             "player_ids": [message.sender_id],
             "game": None,
         }
-        self._save_room( room)
+        self._save_room(room)
 
         msg = (
             f"🎭 犯罪舞蹈房间已创建！\n"
@@ -186,13 +186,10 @@ class CriminalDancePlugin(Plugin):
         # 加入房间
         room["players"].append((message.sender_id, message.sender_name))
         room["player_ids"].append(message.sender_id)
-        self._save_room( room)
+        self._save_room(room)
 
         player_count = len(room["players"])
-        msg = (
-            f"✅ {message.sender_name} 加入了房间！\n"
-            f"当前玩家: {player_count}人"
-        )
+        msg = f"✅ {message.sender_name} 加入了房间！\n" f"当前玩家: {player_count}人"
         if player_count >= 3:
             msg += f"\n人数已够，房主可以发送【开始】开始游戏"
         else:
@@ -219,7 +216,7 @@ class CriminalDancePlugin(Plugin):
         if message.sender_id == room["owner_id"]:
             if len(room["players"]) <= 1:
                 # 只有房主一个人，直接解散
-                self._save_room( None)
+                self._save_room(None)
                 await self.send_message("房主离开了房间，房间已解散")
             else:
                 # 转移房主给下一个玩家
@@ -228,14 +225,16 @@ class CriminalDancePlugin(Plugin):
                 room["player_ids"].pop(idx)
                 room["owner_id"] = room["player_ids"][0]
                 room["owner_name"] = room["players"][0][1]
-                self._save_room( room)
+                self._save_room(room)
                 await self.send_message(f"房主离开了，新房主是 {room['owner_name']}")
         else:
             idx = room["player_ids"].index(message.sender_id)
             room["players"].pop(idx)
             room["player_ids"].pop(idx)
-            self._save_room( room)
-            await self.send_message(f"{message.sender_name} 离开了房间，当前{len(room['players'])}人")
+            self._save_room(room)
+            await self.send_message(
+                f"{message.sender_name} 离开了房间，当前{len(room['players'])}人"
+            )
 
         return False
 
@@ -273,6 +272,7 @@ class CriminalDancePlugin(Plugin):
 
         # 建立玩家私聊会话 -> 群聊 space 的映射
         from dorobot.session_manager import session_manager
+
         # 同时保存 room 到群聊 space（供 next_turn 等 game 内部使用）
         group_space = self.get_space()
         group_space["room"] = room
@@ -308,7 +308,7 @@ class CriminalDancePlugin(Plugin):
             await self.send_message("只有房主可以解散房间")
             return False
 
-        self._save_room( None)
+        self._save_room(None)
         await self.send_message("房间已解散")
         return False
 
@@ -333,7 +333,11 @@ class CriminalDancePlugin(Plugin):
 
         if room["status"] == "playing" and room.get("game"):
             game = room["game"]
-            pname = game.current_player.player_name if hasattr(game.current_player, 'player_name') else f"玩家{game.current_player.id}"
+            pname = (
+                game.current_player.player_name
+                if hasattr(game.current_player, "player_name")
+                else f"玩家{game.current_player.id}"
+            )
             lines.append(f"\n当前回合: {pname}")
             lines.append(f"公共信息: {game.num_players}人局")
 
@@ -354,7 +358,10 @@ class CriminalDancePlugin(Plugin):
         # 找到当前玩家（只在普通出牌阶段检查轮次）
         current_player = None
         if type(game.controller).__name__ == "PlayCardController":
-            if not hasattr(game.current_player, "player_id") or game.current_player.player_id != message.sender_id:
+            if (
+                not hasattr(game.current_player, "player_id")
+                or game.current_player.player_id != message.sender_id
+            ):
                 await self.send_message("还没轮到你出牌")
                 return False
             current_player = game.current_player
@@ -477,7 +484,9 @@ class CriminalDancePlugin(Plugin):
             return False
 
         # 通过私聊发送手牌
-        cards_text = "\n".join(f"{i+1}. {c.name} - {c.desc}" for i, c in enumerate(player.cards))
+        cards_text = "\n".join(
+            f"{i+1}. {c.name} - {c.desc}" for i, c in enumerate(player.cards)
+        )
         text = (
             f"🎴 你的手牌 ({game.num_players}人局)\n"
             f"{cards_text}\n\n"
@@ -510,7 +519,9 @@ class CriminalDancePlugin(Plugin):
             return False
 
         # 通过私聊发送手牌
-        cards_text = "\n".join(f"{i+1}. {c.name} - {c.desc}" for i, c in enumerate(player.cards))
+        cards_text = "\n".join(
+            f"{i+1}. {c.name} - {c.desc}" for i, c in enumerate(player.cards)
+        )
         text = (
             f"🎴 你的手牌 ({game.num_players}人局)\n"
             f"{cards_text}\n\n"
@@ -524,17 +535,20 @@ class CriminalDancePlugin(Plugin):
 
     async def _send_private(self, user_id: str, content: str):
         """发送私聊消息给指定用户"""
-        from dorobot.bot_manager import bot_manager
-        bot_id = ctx.get_bot_id()
+        bot_id = context.get_bot_id()
         if not bot_id:
-            logger.warning(f"Plugin {self.name} has no bot context, cannot send private message")
+            logger.warning(
+                f"Plugin {self.name} has no bot context, cannot send private message"
+            )
             return
         bot = bot_manager.get_bot(bot_id)
-        if bot and hasattr(bot, 'send_private'):
+        if bot and hasattr(bot, "send_private"):
             await bot.send_private(user_id, content)
         else:
             # Fallback to group message if send_private not available
-            logger.warning(f"Bot {bot_id} does not support send_private, falling back to group message")
+            logger.warning(
+                f"Bot {bot_id} does not support send_private, falling back to group message"
+            )
             await self.send_message(content)
 
     async def notify_game(self, msg, target_player=None):
@@ -566,7 +580,9 @@ class CriminalDancePlugin(Plugin):
                 player_name = target_player.player_name if target_player else "未知玩家"
                 player_id = target_player.player_id if target_player else ""
 
-                cards_text = "\n".join(f"{i+1}. {c['name']} - {c['desc']}" for i, c in enumerate(cards))
+                cards_text = "\n".join(
+                    f"{i+1}. {c['name']} - {c['desc']}" for i, c in enumerate(cards)
+                )
                 text = (
                     f"🎴 你的手牌 ({num_players}人局)\n"
                     f"{cards_text}\n\n"

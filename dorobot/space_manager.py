@@ -44,6 +44,11 @@ class SpaceManager:
             name_parts = tuple(str(rel_path)[:-5].split("/"))
             Space(*name_parts)  # 单例获取或创建
 
+
+def init_space():
+    """初始化 Space 持久化，从磁盘加载数据"""
+    space_manager.init()
+
     async def _scan_loop(self):
         """定期扫描并保存 dirty 的 Space"""
         while self._running:

@@ -6,12 +6,6 @@ from pathlib import Path
 from loguru import logger
 
 
-def init_space():
-    """初始化 Space 持久化，从磁盘加载数据"""
-    from .space_manager import space_manager
-    space_manager.init()
-
-
 def init_logging(
     level: str = "INFO",
     format_str: str | None = None,

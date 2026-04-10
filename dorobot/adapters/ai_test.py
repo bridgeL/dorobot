@@ -28,6 +28,7 @@ import uvicorn
 from dorobot.bot import Bot
 from dorobot.adapter import Adapter
 from dorobot.bot_manager import bot_manager
+from dorobot.message import Message
 
 
 class AITestAdapter(Adapter):
@@ -48,11 +49,11 @@ class AITestAdapter(Adapter):
         logger.add(
             logs_dir / "ai_test.log",
             format="<green>{time:YYYY-MM-DD HH:mm:ss.SSS}</green> | "
-                  "<level>{level: <8}</level> | "
-                  "<cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - "
-                  "<level>{message}</level>",
+            "<level>{level: <8}</level> | "
+            "<cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - "
+            "<level>{message}</level>",
             level="DEBUG",
-            mode="w"
+            mode="w",
         )
 
     async def start(self):
@@ -105,13 +106,19 @@ class AITestAdapter(Adapter):
             session_id: str = Form("group.test123"),
             sender_id: str = Form("user1"),
             sender_name: str = Form("用户1"),
-            content: str = Form(...)
+            content: str = Form(...),
         ):
-            logger.debug(f"[AITest Msg] session={session_id}, sender={sender_name}({sender_id}), content={content}")
+            logger.debug(
+                f"[AITest Msg] session={session_id}, sender={sender_name}({sender_id}), content={content}"
+            )
             # 记录当前日志行数，send_test 后获取增量日志
             logs_dir = Path.cwd() / "logs"
             ai_test_log = logs_dir / "ai_test.log"
-            start_line = ai_test_log.read_text(encoding="utf-8").splitlines().__len__() if ai_test_log.exists() else 0
+            start_line = (
+                ai_test_log.read_text(encoding="utf-8").splitlines().__len__()
+                if ai_test_log.exists()
+                else 0
+            )
             await self._bot.send_test(session_id, sender_id, sender_name, content)
             await asyncio.sleep(0.2)
             timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
@@ -152,10 +159,10 @@ class AITestBot(Bot):
         """发送私聊消息"""
         logger.info(f"[Bot->private.{user_id}] {content}")
 
-    def _build_message(self, content: str, session_id: str, sender_id: str, sender_name: str):
+    def _build_message(
+        self, content: str, session_id: str, sender_id: str, sender_name: str
+    ):
         """构建消息对象"""
-        from dorobot.message import Message
-
         if session_id.startswith("group."):
             session_type = "group"
             group_id = session_id[6:]
@@ -171,10 +178,12 @@ class AITestBot(Bot):
             session_type=session_type,
             group_id=group_id,
             user_id=sender_id,
-            raw_data={"source": self.self_id, "input": content}
+            raw_data={"source": self.self_id, "input": content},
         )
 
-    async def send_test(self, session_id: str, sender_id: str, sender_name: str, content: str):
+    async def send_test(
+        self, session_id: str, sender_id: str, sender_name: str, content: str
+    ):
         """发送测试消息"""
         message = self._build_message(content, session_id, sender_id, sender_name)
         await self.on_message(message)

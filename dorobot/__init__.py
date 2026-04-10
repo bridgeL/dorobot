@@ -11,11 +11,11 @@ from .bot import Bot
 from .adapter import Adapter
 from .bot_manager import BotManager, bot_manager
 from .adapter_manager import AdapterManager, adapter_manager
-from .utils import init_logging, load_plugins, run, init_space
-from . import context as ctx
+from .utils import init_logging, load_plugins, run
+from . import context
 from .on import on_command, on_keyword, on_pattern, on_message
 from .space import Space
-from .space_manager import SpaceManager, space_manager
+from .space_manager import SpaceManager, space_manager, init_space
 from .config import global_config
 from .app_plugin import AppPlugin
 

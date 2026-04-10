@@ -4,6 +4,7 @@ from loguru import logger
 from dorobot.bot import Bot
 from dorobot.adapter import Adapter
 from dorobot.bot_manager import bot_manager
+from dorobot.message import Message
 
 
 class ConsoleAdapter(Adapter):
@@ -40,10 +41,10 @@ class ConsoleBot(Bot):
         """发送私聊消息"""
         logger.info(f"[Bot] {self.self_id} -> private.{user_id}: {content}")
 
-    def _build_message(self, content: str, session_id: str, sender_id: str, sender_name: str):
+    def _build_message(
+        self, content: str, session_id: str, sender_id: str, sender_name: str
+    ):
         """构建消息对象"""
-        from dorobot.message import Message
-
         # 解析 session_id 判断类型
         # 格式: group.123456 或 private.10001
         if session_id.startswith("group."):
@@ -61,10 +62,7 @@ class ConsoleBot(Bot):
             session_type=session_type,
             group_id=group_id,
             user_id=sender_id,
-            raw_data={
-                "source": "console",
-                "input": content
-            }
+            raw_data={"source": "console", "input": content},
         )
 
     def _parse_input(self, line: str):
@@ -88,7 +86,9 @@ class ConsoleBot(Bot):
                     continue
 
                 session_id, user_id, message_content = parsed
-                message = self._build_message(message_content, session_id, user_id, user_id)
+                message = self._build_message(
+                    message_content, session_id, user_id, user_id
+                )
                 await self.on_message(message)
 
             except asyncio.CancelledError:

@@ -2,7 +2,7 @@ from typing import TYPE_CHECKING, Optional
 from .card import Card
 
 if TYPE_CHECKING:
-    from .game import Game
+    from .game_core import Game
 
 
 class Player:
