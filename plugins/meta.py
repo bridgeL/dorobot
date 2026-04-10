@@ -110,15 +110,15 @@ class MetaPlugin(Plugin):
         if is_active:
             # 关闭插件
             try:
-                session.deactivate_plugin(plugin_name, layer_id)
+                await session.deactivate_plugin(plugin_name, layer_id)
                 await self.send_message(f"🔴 插件 {plugin_name} 已关闭")
             except Exception as e:
                 await self.send_message(f"❌ 关闭插件失败：{e}")
         else:
             # 激活插件
             try:
-                await self.send_message(f"🟢 插件 {plugin_name} 已激活")
                 await session.activate_plugin(plugin_name, layer_id)
+                await self.send_message(f"🟢 插件 {plugin_name} 已激活")
             except Exception as e:
                 await self.send_message(f"❌ 激活插件失败：{e}")
 

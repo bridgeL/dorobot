@@ -5,7 +5,8 @@ from typing import Any
 import re
 from re import Match
 
-from .plugin import Plugin, Message
+from .message import Message
+from .plugin import Plugin
 from .plugin_manager import register_plugin
 from .config import global_config
 

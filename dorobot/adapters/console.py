@@ -40,7 +40,10 @@ class ConsoleBot(Bot):
         """发送私聊消息"""
         logger.info(f"[Bot] {self.self_id} -> private.{user_id}: {content}")
 
-    def _build_message(self, content: str, session_id: str, sender_id: str, sender_name: str) -> dict:
+    def _build_message(self, content: str, session_id: str, sender_id: str, sender_name: str):
+        """构建消息对象"""
+        from dorobot.message import Message
+
         # 解析 session_id 判断类型
         # 格式: group.123456 或 private.10001
         if session_id.startswith("group."):
@@ -50,20 +53,19 @@ class ConsoleBot(Bot):
             session_type = "private"
             group_id = ""
 
-        return {
-            "content": content,
-            "sender_id": sender_id,
-            "sender_name": sender_name,
-            "session_id": f"console.{session_id}",
-            "msg_type": "text",
-            "type": session_type,
-            "group_id": group_id,
-            "user_id": sender_id,
-            "raw_data": {
+        return Message(
+            content=content,
+            sender_id=sender_id,
+            sender_name=sender_name,
+            session_id=f"console.{session_id}",
+            session_type=session_type,
+            group_id=group_id,
+            user_id=sender_id,
+            raw_data={
                 "source": "console",
                 "input": content
             }
-        }
+        )
 
     def _parse_input(self, line: str):
         parts = line.split(maxsplit=2)
@@ -87,8 +89,7 @@ class ConsoleBot(Bot):
 
                 session_id, user_id, message_content = parsed
                 message = self._build_message(message_content, session_id, user_id, user_id)
-                full_session_id = f"console.{session_id}"
-                await self.on_message(full_session_id, message)
+                await self.on_message(message)
 
             except asyncio.CancelledError:
                 break

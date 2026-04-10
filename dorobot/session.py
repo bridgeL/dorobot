@@ -4,8 +4,9 @@ from typing import Optional
 import asyncio
 from loguru import logger
 
-from . import context as ctx
-from .plugin import Plugin, Message
+from . import context
+from .message import Message
+from .plugin import Plugin
 from .layer import (
     Layer,
     layer_prototype,
@@ -48,8 +49,6 @@ class Session:
         self.user_id = user_id
         # 从原型复制 layer 结构
         self._layers: dict[int, Layer] = layer_prototype.create_layers()
-        # 记录哪些插件已调用过 on_activate
-        self._on_activated_plugins: set[str] = set()
         # 自动激活 default_active 的插件
         self._activate_default_plugins()
 
@@ -95,9 +94,16 @@ class Session:
                 f"会话中不存在第 {layer_id} 层"
             )
         result = layer.activate_plugin(plugin_name, self.session_id, silent=silent)
+        if result:
+            plugin = plugin_manager.get_plugin(plugin_name)
+            if plugin:
+                try:
+                    await plugin.on_activate()
+                except Exception as e:
+                    logger.error(f"Plugin {plugin_name} on_activate failed: {e}")
         return result
 
-    def deactivate_plugin(self, plugin_name: str, layer_id: int) -> bool:
+    async def deactivate_plugin(self, plugin_name: str, layer_id: int) -> bool:
         """关闭指定插件
 
         Args:
@@ -116,13 +122,13 @@ class Session:
                 f"会话中不存在第 {layer_id} 层"
             )
         result = layer.deactivate_plugin(plugin_name, self.session_id)
-        # 调用插件的 on_deactivate 方法
-        plugin = plugin_manager.get_plugin(plugin_name)
-        if plugin:
-            try:
-                plugin.on_deactivate()
-            except Exception as e:
-                logger.error(f"Plugin {plugin_name} on_deactivate failed: {e}")
+        if result:
+            plugin = plugin_manager.get_plugin(plugin_name)
+            if plugin:
+                try:
+                    plugin.on_deactivate()
+                except Exception as e:
+                    logger.error(f"Plugin {plugin_name} on_deactivate failed: {e}")
         return result
 
     def deactivate_all_plugins(self):
@@ -163,29 +169,15 @@ class Session:
 
             # 获取插件实例（从全局注册中心）
             active_plugins: list[Plugin] = []
+            current_bot_id = context.get_bot_id()
+            current_bot = bot_manager.get_bot(current_bot_id) if current_bot_id else None
+
             for name in active_plugin_names:
                 plugin = plugin_manager.get_plugin(name)
                 if plugin:
-                    # 检查插件是否允许当前 Bot 类型
-                    if plugin.bots is not None:
-                        current_bot_id = ctx.get_bot_id()
-                        current_bot = bot_manager.get_bot(current_bot_id) if current_bot_id else None
-                        if current_bot:
-                            # 检查当前 Bot 实例是否属于插件允许的类型
-                            if not any(isinstance(current_bot, bot_type) for bot_type in plugin.bots):
-                                logger.debug(f"[Session] Plugin({name}) skipped for bot type {type(current_bot).__name__}")
-                                continue
-                    # 检查插件 scope 是否匹配当前会话类型
-                    if plugin.scope is not None and plugin.scope != self.type:
-                        logger.debug(f"[Session] Plugin({name}) skipped for scope {self.type}")
+                    if not plugin.matches_context(current_bot, self.type):
+                        logger.debug(f"[Session] Plugin({name}) skipped: context mismatch")
                         continue
-                    # 首次激活时调用 on_activate
-                    if name not in self._on_activated_plugins:
-                        self._on_activated_plugins.add(name)
-                        try:
-                            await plugin.on_activate()
-                        except Exception as e:
-                            logger.error(f"Plugin {name} on_activate failed: {e}")
                     active_plugins.append(plugin)
                 else:
                     logger.warning(
@@ -203,7 +195,7 @@ class Session:
             for i, result in enumerate(results):
                 plugin_name = list(active_plugin_names)[i]
                 if isinstance(result, Exception):
-                    logger.error(
+                    logger.exception(
                         f"[Session] Plugin({plugin_name}) raised exception: {result}"
                     )
                     continue

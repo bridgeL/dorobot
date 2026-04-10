@@ -35,7 +35,8 @@ import re
 from typing import Callable, Optional
 from loguru import logger
 
-from .plugin import Plugin, Message
+from .message import Message
+from .plugin import Plugin
 from .config import global_config
 from .context import get_session_id
 

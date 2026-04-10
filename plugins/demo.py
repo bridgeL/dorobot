@@ -1,10 +1,11 @@
 """示例插件集合"""
+
 from collections import Counter
 from loguru import logger
 from dorobot import Plugin, Message, register_plugin
 
 
-@register_plugin("字频统计", layer=1, description="统计群里各成员的字频")
+@register_plugin("字频统计", layer=3, description="统计群里各成员的字频", active=True)
 class CharFreqPlugin(Plugin):
     """1层插件示例 - 字频统计（共享层）"""
 
@@ -65,4 +66,3 @@ class GamePlugin(Plugin):
         except ValueError:
             # 不是数字，继续传递
             return True
-

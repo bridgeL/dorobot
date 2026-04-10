@@ -3,9 +3,9 @@
 from dorobot import on_command, on_keyword, Message, Plugin
 
 
-@on_command("echo", active=False)
+@on_command("echo", active=True)
 async def echo(message: Message, plugin: Plugin, arg: str):
-    """回声插件 - 回复去掉命令后的内容"""
+    """回声插件 - /echo 后跟文本，Bot 会原样回复"""
     await plugin.send_message(arg)
 
 

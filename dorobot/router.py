@@ -5,7 +5,7 @@
 """
 from loguru import logger
 
-from .plugin import Message
+from .message import Message
 from .session_manager import session_manager
 from . import context
 
@@ -25,48 +25,35 @@ class MessageRouter:
        - 2层（应用层）：独占层，只能激活1个插件
        - 3层（共享层）：共享层，可激活多个插件
     """
-
-    def __init__(self):
-        """初始化消息路由器"""
-        self._session_manager = session_manager
-
-    async def handle_message(self, bot_id: str, session_id: str, message_data: dict) -> bool:
+    async def handle_message(self, bot_id: str, message: Message) -> bool:
         """处理 Bot 发来的消息
 
         这是 Bot 收到消息后应该调用的入口方法。
 
         Args:
             bot_id: Bot 的唯一标识
-            session_id: 会话ID
-            message_data: 原始消息数据，包含 content, sender_id, sender_name, msg_type 等
+            message: 消息对象
 
         Returns:
             bool: 消息是否被完全处理
         """
+        session_id = message.session_id
+
         # 设置上下文变量
         context.bot_id.set(bot_id)
         context.session_id.set(session_id)
 
         try:
             # 通过 SessionManager 获取或创建会话
-            session = await self._session_manager.get_or_create_session(
+            session = await session_manager.get_or_create_session(
                 session_id,
-                type=message_data.get("type", "private"),
-                group_id=message_data.get("group_id", ""),
-                user_id=message_data.get("user_id", ""),
-            )
-            
-            # 构造消息对象
-            message = Message(
-                content=message_data.get("content", ""),
-                sender_id=message_data.get("sender_id", ""),
-                sender_name=message_data.get("sender_name", ""),
-                msg_type=message_data.get("msg_type", "text"),
-                raw_data=message_data
+                type=message.session_type,
+                group_id=message.group_id,
+                user_id=message.user_id,
             )
 
             content_preview = message.content[:50] + "..." if len(message.content) > 50 else message.content
-            logger.info(f"[Router] Routing message: bot={bot_id}, session={session_id}, sender={message.sender_name}({message.sender_id}), content='{content_preview}'")
+            logger.info(f"[Router] Routing message: bot={bot_id}, session_id={session_id}, sender_id={message.sender_id}, sender_name={message.sender_name}, content={content_preview}', ")
             result = await session.handle_message(message)
             return result
         finally:

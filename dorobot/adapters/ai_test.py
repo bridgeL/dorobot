@@ -152,8 +152,10 @@ class AITestBot(Bot):
         """发送私聊消息"""
         logger.info(f"[Bot->private.{user_id}] {content}")
 
-    def _build_message(self, content: str, session_id: str, sender_id: str, sender_name: str) -> dict:
-        """构建消息字典"""
+    def _build_message(self, content: str, session_id: str, sender_id: str, sender_name: str):
+        """构建消息对象"""
+        from dorobot.message import Message
+
         if session_id.startswith("group."):
             session_type = "group"
             group_id = session_id[6:]
@@ -161,22 +163,21 @@ class AITestBot(Bot):
             session_type = "private"
             group_id = ""
 
-        return {
-            "content": content,
-            "sender_id": sender_id,
-            "sender_name": sender_name,
-            "session_id": session_id,
-            "msg_type": "text",
-            "type": session_type,
-            "group_id": group_id,
-            "user_id": sender_id,
-            "raw_data": {"source": "aitest", "input": content}
-        }
+        return Message(
+            content=content,
+            sender_id=sender_id,
+            sender_name=sender_name,
+            session_id=session_id,
+            session_type=session_type,
+            group_id=group_id,
+            user_id=sender_id,
+            raw_data={"source": self.self_id, "input": content}
+        )
 
     async def send_test(self, session_id: str, sender_id: str, sender_name: str, content: str):
         """发送测试消息"""
         message = self._build_message(content, session_id, sender_id, sender_name)
-        await self.on_message(session_id, message)
+        await self.on_message(message)
 
     async def start(self):
         self._running = True

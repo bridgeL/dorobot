@@ -16,6 +16,7 @@ class Game:
         self.players = [Player(self, i) for i in range(num_players)]
         self.plugin = None
         self.group_id = None
+        self.room = None  # 存储 room 引用，避免 session context 问题
 
     async def start(self):
         cards = self.create_cards()
@@ -38,12 +39,9 @@ class Game:
                 HandCardMsg(player.cards, self.num_players, player.player_id), player
             )
 
-        # 更新房间中的当前玩家ID
-        if self.plugin and self.group_id:
-            room = self.plugin._get_room()
-            if room:
-                room["current_player_id"] = self.current_player.player_id
-                self.plugin._save_room(room)
+        # 更新房间中的当前玩家ID（使用 game.room 避免 session context 问题）
+        if self.room:
+            self.room["current_player_id"] = self.current_player.player_id
 
     def create_cards(self) -> list[Card]:
         num_players = self.num_players
@@ -194,12 +192,9 @@ class Game:
 
         await self.notify(YourTurnMsg(self.current_player))
 
-        # 更新房间中的当前玩家ID
-        if self.plugin and self.group_id:
-            room = self.plugin._get_room()
-            if room:
-                room["current_player_id"] = self.current_player.player_id
-                self.plugin._save_room(room)
+        # 更新房间中的当前玩家ID（使用 game.room 避免 session context 问题）
+        if self.room:
+            self.room["current_player_id"] = self.current_player.player_id
 
         # 打印游戏状态
         logger.debug(self)

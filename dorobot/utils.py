@@ -90,7 +90,7 @@ def load_plugins():
             importlib.import_module(module_name)
             loaded.append(module_name)
         except Exception as e:
-            logger.error(f"Failed to load plugin {module_name}: {e}")
+            logger.exception(f"Failed to load plugin {module_name}: {e}")
 
     return loaded
 

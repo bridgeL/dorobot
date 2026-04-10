@@ -180,20 +180,20 @@ class NTQQBot(Bot):
         sender = data.get("sender", {})
         sender_name = sender.get("card") or sender.get("nickname") or user_id
 
-        message = {
-            "content": message_content,
-            "sender_id": user_id,
-            "sender_name": sender_name,
-            "session_id": session_id,
-            "msg_type": message_type,
-            "type": session_type,
-            "group_id": str(group_id) if group_id else "",
-            "user_id": user_id,
-            "raw_data": data,
-        }
-
         logger.debug(f"NTQQ message [{session_id}/{user_id}]: {message_content[:50]}")
-        await self.on_message(session_id, message)
+
+        from dorobot.message import Message
+        msg = Message(
+            content=message_content,
+            sender_id=user_id,
+            sender_name=sender_name,
+            session_id=session_id,
+            session_type=session_type,
+            group_id=str(group_id) if group_id else "",
+            user_id=user_id,
+            raw_data=data,
+        )
+        await self.on_message(msg)
 
     def _extract_message_content(self, message: list | str) -> str:
         if isinstance(message, str):

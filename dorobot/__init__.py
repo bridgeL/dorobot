@@ -1,6 +1,7 @@
 """DoroBot - 多插件聊天机器人核心库"""
 
-from .plugin import Plugin, Message
+from .message import Message
+from .plugin import Plugin
 from .layer import Layer
 from .session import Session
 from .session_manager import SessionManager, session_manager

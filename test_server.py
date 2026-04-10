@@ -21,11 +21,14 @@ import asyncio
 from dorobot import init_logging, load_plugins, init_space
 from dorobot.adapters.ai_test import AITestAdapter
 from dorobot.adapter_manager import adapter_manager
+from dorobot.config import global_config
 
 
 async def main():
     # 初始化
     init_logging(level="DEBUG")
+    # 设置命令前缀为空，方便测试
+    global_config.cmd_prefix = ""
     init_space()
     load_plugins()
 

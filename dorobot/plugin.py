@@ -1,23 +1,11 @@
 """插件基类定义"""
 
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
-from typing import Optional
 from loguru import logger
 
 from .context import get_bot_id, get_session_id
+from .message import Message
 from .space import Space
-
-
-@dataclass
-class Message:
-    """消息数据类"""
-
-    content: str
-    sender_id: str
-    sender_name: str
-    msg_type: str = "text"  # text, image, etc.
-    raw_data: Optional[dict] = None
 
 
 class Plugin(ABC):
@@ -115,6 +103,25 @@ class Plugin(ABC):
         if not session_id:
             return None
         return Space(self.name, session_id, memory=memory)
+
+    def matches_context(self, bot, session_type: str) -> bool:
+        """检查插件是否应该在当前上下文中处理消息
+
+        Args:
+            bot: 当前 Bot 实例，None 表示无 Bot 上下文
+            session_type: 会话类型，"group" 或 "private"
+
+        Returns:
+            bool: True 表示插件应该处理此消息，False 表示跳过
+        """
+        # 检查 Bot 类型
+        if self.bots is not None and bot is not None:
+            if not any(isinstance(bot, bot_type) for bot_type in self.bots):
+                return False
+        # 检查会话类型
+        if self.scope is not None and self.scope != session_type:
+            return False
+        return True
 
     async def send_message(
         self, content: str, session_id: str | None = None, bot_id: str | None = None

@@ -19,14 +19,9 @@ class TradeCard(Card):
             await game.notify(TradeNoEffectMsg(no_card_players))
             return
 
-        # 检查目标玩家是否有交易牌可以给出
-        if not target.get_card(self.name):
-            await game.notify(TradeNoEffectMsg(players))
-            return
-
         # 通过私聊分别提示两个玩家
-        await game.notify(TradeStartHintMsg(player), player)
-        await game.notify(TradeStartHintMsg(target), target)
+        await game.notify(TradeStartHintMsg([player]), player)
+        await game.notify(TradeStartHintMsg([target]), target)
         game.controller = TradeController(game, player, target)
 
 

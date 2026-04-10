@@ -20,40 +20,45 @@ class CriminalDancePlugin(Plugin):
     """犯罪舞蹈游戏插件"""
 
     def _get_room(self) -> Optional[dict]:
-        """获取房间信息
-
-        如果在私聊会话中，会尝试查找对应的群聊会话来获取房间
-        """
-        session = self.get_session()
+        """获取房间信息"""
         space = self.get_space()
-
-        # 私聊从 group_space 获取 room
-        if session.type == "private":
-            room = space.get(f"{self.name}_group_space").get("room")
-        else:
-            room = space.get("room")
-
+        logger.debug(f"_get_room: space={space}, type={type(space)}")
+        if not space:
+            logger.debug("_get_room: space is None")
+            return None
+        room = space.get("room")
+        logger.debug(f"_get_room: room={room}")
         return room
 
     def _save_room(self, room: dict):
         """保存房间信息"""
-        self.get_space()["room"] = room
+        space = self.get_space()
+        logger.debug(f"_save_room: space={space}, type={type(space)}, room={room}")
+        if space is not None:
+            space["room"] = room
+        else:
+            logger.warning("_save_room: space is None!")
 
     async def handle_message(self, message: Message) -> bool:
         """处理消息"""
         session = self.get_session()
+        logger.debug(f"handle_message: session.type={session.type}")
 
-        # 私聊需要检查是否有 group_space 映射
+        # 私聊获取 room（room 在游戏开始时存储到私聊 space 中）
         if session.type == "private":
             space = self.get_space()
-            group_space = space.get(f"{self.name}_group_space")
-            if not group_space:
-                return True  # 私聊但没有对应的群聊游戏，不处理
+            logger.debug(f"handle_message private: space={space}, type={type(space)}")
+            room = space.get("room") if hasattr(space, "get") else None
+            logger.debug(f"handle_message private: room={room}")
+            # 确保插件在私聊会话中已激活（游戏开始时会激活，但重启后需要重新激活）
+            layer = session._get_layer(self.layer)
+            if layer and not layer.is_plugin_active(self.name):
+                await session.activate_plugin(self.name, self.layer, silent=True)
 
             # 私聊出牌消息，转到群聊游戏处理
             content = message.content.strip()
             if content.startswith("出牌"):
-                room = group_space.get("room")
+                logger.debug(f"handle_message private: checking room, room={room}")
                 if not room or room.get("status") != "playing":
                     await self.send_message("当前不在游戏中")
                     return False
@@ -99,12 +104,14 @@ class CriminalDancePlugin(Plugin):
 
                 if game.is_end:
                     room["status"] = "ended"
-                    group_space["room"] = room
+
+                # 保存 room 状态
+                space["room"] = room
 
                 return False
 
-            # 私聊中的其他命令（如手牌）使用群聊的 room
-            return await self._cmd_handcard_from_private(message, group_space)
+            # 私聊中的其他命令（如手牌）使用 room
+            return await self._cmd_handcard_from_private(message, room)
 
         group_id = session.group_id or message.sender_id
         content = message.content.strip()
@@ -265,20 +272,26 @@ class CriminalDancePlugin(Plugin):
             game.players[i].player_name = player_name
 
         # 建立玩家私聊会话 -> 群聊 space 的映射
-        group_space = self.get_space()
         from dorobot.session_manager import session_manager
+        # 同时保存 room 到群聊 space（供 next_turn 等 game 内部使用）
+        group_space = self.get_space()
+        group_space["room"] = room
+
         for player_id, _ in room["players"]:
             private_space = Space(self.name, f"private.{player_id}", memory=True)
-            private_space[f"{self.name}_group_space"] = group_space
+            # room 信息存到私聊 space 中，供私聊消息处理时使用
+            private_space["room"] = room
             # 在私聊会话中激活插件（第2层不会自动激活）
             private_session = await session_manager.get_or_create_session(
                 f"private.{player_id}", type="private", user_id=player_id
             )
-            await private_session.activate_plugin(self.name, self.layer)
+
+        # 存储 room 引用到 game 对象，避免 session context 问题
+        game.room = room
+        await private_session.activate_plugin(self.name, self.layer)
 
         room["game"] = game
         room["status"] = "playing"
-        self._save_room( room)
 
         # 启动游戏
         await game.start()
@@ -396,7 +409,9 @@ class CriminalDancePlugin(Plugin):
         if game.is_end:
             # 游戏结束
             room["status"] = "ended"
-            self._save_room( room)
+
+        # 保存 room 状态（轮次更新等）
+        self._save_room(room)
 
         return False
 
@@ -472,9 +487,8 @@ class CriminalDancePlugin(Plugin):
         await self.send_message(f"已通过私聊发送你的手牌给 @{player.player_name}")
         return False
 
-    async def _cmd_handcard_from_private(self, message: Message, group_space: dict) -> bool:
-        """查询自己的手牌（从私聊会话，通过 group_space）"""
-        room = group_space.get("room")
+    async def _cmd_handcard_from_private(self, message: Message, room: dict) -> bool:
+        """查询自己的手牌（从私聊会话）"""
         if not room or room.get("status") != "playing":
             await self.send_message("当前不在游戏中")
             return False
@@ -525,6 +539,13 @@ class CriminalDancePlugin(Plugin):
 
     async def notify_game(self, msg, target_player=None):
         """游戏通知回调"""
+        # 如果有目标玩家，说明是私聊消息，通过私聊发送
+        if target_player:
+            msg_text = str(msg)
+            await self._send_private(target_player.player_id, msg_text)
+            return
+
+        # 没有目标玩家，是群聊消息
         session = self.get_session()
         if not session:
             return
@@ -537,7 +558,7 @@ class CriminalDancePlugin(Plugin):
             msg_content = data.get("data")
 
             if msg_type == "hand_card" and isinstance(msg_content, dict):
-                # 私聊手牌
+                # 私聊手牌（理论上不会走到这里，但保留以防万一）
                 cards = msg_content.get("cards", [])
                 num_players = msg_content.get("num_players", 0)
 
