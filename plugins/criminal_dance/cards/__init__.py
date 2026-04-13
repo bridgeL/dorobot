@@ -96,6 +96,15 @@ def generate_card_pool(player_count: int) -> list[Card]:
     return [get_card(c) for c in pool]
 
 
+def generate_fixed_pool(card_names: list[str]) -> list[Card]:
+    """生成固定顺序的卡牌池（用于测试）
+
+    Args:
+        card_names: 卡牌名称列表
+    """
+    return [get_card(c) for c in card_names]
+
+
 def deal_cards(pool: list[Card], player_count: int) -> list[list[Card]]:
     """发牌给所有玩家，每人4张，返回玩家手牌列表"""
     cards_per_player = 4
