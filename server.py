@@ -1,37 +1,67 @@
+import asyncio
+import subprocess
+from pathlib import Path
 from mcp.server.fastmcp import FastMCP
 
-from dorobot import Dorobot
-from dorobot.adapters.ai_test import AITestAdapter
+import aiohttp
 
 mcp = FastMCP("dorobot")
 
-_dorobot: Dorobot | None = None
-_ai_adapter: AITestAdapter | None = None
+_process: subprocess.Popen | None = None
+_BASE_URL = "http://localhost:8765"
+
+# 获取项目根目录
+_PROJECT_ROOT = Path(__file__).parent.resolve()
 
 
 @mcp.tool()
 def start_dorobot() -> str:
-    """启动 dorobot"""
-    global _dorobot, _ai_adapter
+    """启动 dorobot (子进程 python test_ai.py)"""
+    global _process
 
-    _dorobot = Dorobot.get_instance()
-    _dorobot.init()
+    if _process is not None:
+        return "dorobot 已在运行"
 
-    _ai_adapter = AITestAdapter()
-    _dorobot.add_adapter(_ai_adapter)
-    _dorobot.start()
+    _process = subprocess.Popen(
+        ["python", "test_ai.py"],
+        cwd=str(_PROJECT_ROOT),
+        creationflags=subprocess.CREATE_NEW_CONSOLE if hasattr(subprocess, "CREATE_NEW_CONSOLE") else 0,
+    )
+
+    # 等待服务启动
+    asyncio.get_event_loop().run_until_complete(_wait_for_service())
 
     return "dorobot 已启动"
 
 
+async def _wait_for_service(max_attempts: int = 30) -> bool:
+    """等待 HTTP 服务就绪"""
+    for _ in range(max_attempts):
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(f"{_BASE_URL}/health", timeout=aiohttp.ClientTimeout(total=1)) as resp:
+                    if resp.status == 200:
+                        return True
+        except Exception:
+            pass
+        await asyncio.sleep(0.5)
+    return False
+
+
 @mcp.tool()
 async def stop_dorobot() -> str:
-    """关闭 dorobot"""
-    global _dorobot, _ai_adapter
+    """关闭 dorobot (终止子进程)"""
+    global _process
 
-    if _dorobot:
-        await _dorobot.stop()
-    _ai_adapter = None
+    if _process is None:
+        return "dorobot 未运行"
+
+    _process.terminate()
+    try:
+        _process.wait(timeout=5)
+    except subprocess.TimeoutExpired:
+        _process.kill()
+    _process = None
 
     return "dorobot 已关闭"
 
@@ -53,15 +83,39 @@ async def send_message(
         sender_name: 发送者昵称
         content: 消息内容
     """
-    if _ai_adapter is None:
-        return "错误: dorobot 未启动，请先调用 start_dorobot()"
+    payload = {
+        "session_type": session_type,
+        "target_id": target_id,
+        "sender_id": sender_id,
+        "sender_name": sender_name,
+        "content": content,
+    }
 
-    session_id = f"{session_type}.{target_id}"
-    result = await _ai_adapter.send_test(session_id, sender_id, sender_name, content)
+    async with aiohttp.ClientSession() as session:
+        async with session.post(f"{_BASE_URL}/send", json=payload) as resp:
+            result = await resp.json()
+
     logs = result.get("logs", [])
-
     if not logs:
-        return f"[{result['time']}] 无新增日志"
+        return f"[{result.get('time', '')}] 无新增日志"
+
+    return "\n".join(logs)
+
+
+@mcp.tool()
+async def get_logs(count: int = 50) -> str:
+    """获取最近的日志
+
+    Args:
+        count: 日志条数上限 (默认50，最多200)
+    """
+    async with aiohttp.ClientSession() as session:
+        async with session.get(f"{_BASE_URL}/logs", params={"count": count}) as resp:
+            result = await resp.json()
+
+    logs = result.get("logs", [])
+    if not logs:
+        return "无日志"
 
     return "\n".join(logs)
 

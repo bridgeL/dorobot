@@ -30,6 +30,9 @@ class Layer:
             # 检查 scope 是否匹配
             if plugin.scope is not None and plugin.scope != session_type:
                 continue
+            # 只把插件添加到它注册的对应层
+            if plugin.layer != self.layer_id:
+                continue
             # 根据 default_active 填充对应集合
             if plugin.default_active:
                 self._active_plugins.add(name)

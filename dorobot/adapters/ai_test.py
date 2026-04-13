@@ -1,21 +1,21 @@
-"""AI 测试适配器 - 方便 AI 调试的聊天机器人适配器
+"""AI 测试适配器 - HTTP 服务端
 
-提供异步方法供 MCP server 调用，不再启动 HTTP 服务器。
+提供 HTTP 接口供测试调用:
+  - POST /send  发送测试消息
+  - GET /logs  获取日志
 
 使用方法:
 1. 注册适配器: dorobot.add_adapter(AITestAdapter())
-2. 调用异步方法发送测试消息和获取日志
-
-异步方法:
-  - send_test(session_id, sender_id, sender_name, content): 发送测试消息
-  - get_logs(count): 获取最近 N 条日志
-  - get_logs_since(start_line): 获取从指定偏移之后的所有日志
+2. 启动服务后访问 http://localhost:8765/send 和 /logs
 """
 
 import asyncio
+import json
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
+
+from aiohttp import web
 from loguru import logger
 
 from dorobot.bot import Bot
@@ -24,16 +24,21 @@ from dorobot.message import Message
 
 
 class AITestAdapter(Adapter):
-    """AI 测试适配器"""
+    """AI 测试适配器 - HTTP 服务端"""
 
     name = "ai_test"
 
-    def __init__(self):
+    def __init__(self, host: str = "0.0.0.0", port: int = 8765):
         super().__init__()
         self._bot: Optional[AITestBot] = None
+        self._app: Optional[web.Application] = None
+        self._runner: Optional[web.AppRunner] = None
+        self._site: Optional[web.TCPSite] = None
+        self._host = host
+        self._port = port
         self._start_line: int = 0
 
-        # 添加 ai_test 专用日志文件，DEBUG 级别
+        # 日志文件
         logs_dir = Path.cwd() / "logs"
         logs_dir.mkdir(exist_ok=True)
         logger.add(
@@ -50,11 +55,29 @@ class AITestAdapter(Adapter):
         bot = AITestBot()
         self._bot = bot
         self._dorobot.bot_manager.add_bot(bot)
-        logger.info("AITestAdapter started")
+
+        self._app = web.Application()
+        self._app.router.add_post("/send", self._handle_send)
+        self._app.router.add_get("/logs", self._handle_logs)
+        self._app.router.add_get("/health", self._handle_health)
+
+        self._runner = web.AppRunner(self._app)
+        await self._runner.setup()
+        self._site = web.TCPSite(self._runner, self._host, self._port)
+        await self._site.start()
+
+        logger.info(f"AITestAdapter started on http://{self._host}:{self._port}")
+        logger.info(f"  POST /send  - 发送测试消息")
+        logger.info(f"  GET  /logs  - 获取日志")
 
     async def stop(self):
+        if self._site:
+            await self._site.stop()
+        if self._runner:
+            await self._runner.cleanup()
         if self._bot:
             await self._bot.stop()
+        logger.info("AITestAdapter stopped")
 
     def _get_log_start_line(self) -> int:
         """获取当前日志文件的行数"""
@@ -64,20 +87,33 @@ class AITestAdapter(Adapter):
             return 0
         return len(ai_test_log.read_text(encoding="utf-8").splitlines())
 
-    async def send_test(
-        self, session_id: str, sender_id: str, sender_name: str, content: str
-    ) -> dict:
-        """发送测试消息并返回增量日志
+    def _get_logs_since(self, start_line: int) -> list[str]:
+        """获取从指定行偏移之后的所有日志"""
+        logs_dir = Path.cwd() / "logs"
+        ai_test_log = logs_dir / "ai_test.log"
+        if not ai_test_log.exists():
+            return []
+        lines = ai_test_log.read_text(encoding="utf-8").splitlines()
+        return lines[start_line:] if start_line < len(lines) else []
 
-        Args:
-            session_id: 会话ID（如 "group.test123" 或 "private.user1"）
-            sender_id: 发送者ID
-            sender_name: 发送者昵称
-            content: 消息内容
+    async def _handle_send(self, request: web.Request) -> web.Response:
+        """处理 /send 请求"""
+        try:
+            data = await request.json()
+        except json.JSONDecodeError:
+            return web.json_response({"error": "Invalid JSON"}, status=400)
 
-        Returns:
-            包含 logs 和 time 的字典
-        """
+        session_type = data.get("session_type", "private")
+        target_id = data.get("target_id", "")
+        sender_id = data.get("sender_id", "")
+        sender_name = data.get("sender_name", "Unknown")
+        content = data.get("content", "")
+
+        if not target_id or not content:
+            return web.json_response({"error": "Missing target_id or content"}, status=400)
+
+        session_id = f"{session_type}.{target_id}"
+
         # 记录发送前的日志行数
         self._start_line = self._get_log_start_line()
 
@@ -91,72 +127,32 @@ class AITestAdapter(Adapter):
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
         logs = self._get_logs_since(self._start_line)
 
-        return {"logs": logs, "time": timestamp}
+        return web.json_response({
+            "logs": logs,
+            "time": timestamp,
+            "session_id": session_id,
+        })
 
-    async def send_group_msg(
-        self, group_id: str, sender_id: str, sender_name: str, content: str
-    ) -> dict:
-        """发送群聊测试消息
+    async def _handle_logs(self, request: web.Request) -> web.Response:
+        """处理 /logs 请求"""
+        count = min(int(request.query.get("count", 50)), 200)
 
-        Args:
-            group_id: 群ID（如 "test123"）
-            sender_id: 发送者ID
-            sender_name: 发送者昵称
-            content: 消息内容
-
-        Returns:
-            包含 logs 和 time 的字典
-        """
-        session_id = f"group.{group_id}"
-        return await self.send_test(session_id, sender_id, sender_name, content)
-
-    async def send_private_msg(
-        self, user_id: str, sender_id: str, sender_name: str, content: str
-    ) -> dict:
-        """发送私聊测试消息
-
-        Args:
-            user_id: 用户ID（如 "user1"）
-            sender_id: 发送者ID
-            sender_name: 发送者昵称
-            content: 消息内容
-
-        Returns:
-            包含 logs 和 time 的字典
-        """
-        session_id = f"private.{user_id}"
-        return await self.send_test(session_id, sender_id, sender_name, content)
-
-    def _get_recent_logs(self, count: int = 10) -> list[str]:
-        """获取最近指定数量的日志"""
         logs_dir = Path.cwd() / "logs"
         ai_test_log = logs_dir / "ai_test.log"
         if not ai_test_log.exists():
-            return []
+            return web.json_response({"logs": [], "count": 0})
+
         lines = ai_test_log.read_text(encoding="utf-8").splitlines()
-        return lines[-count:] if len(lines) > count else lines
+        recent = lines[-count:] if len(lines) > count else lines
 
-    def _get_logs_since(self, start_line: int) -> list[str]:
-        """获取从指定行偏移之后的所有日志"""
-        logs_dir = Path.cwd() / "logs"
-        ai_test_log = logs_dir / "ai_test.log"
-        if not ai_test_log.exists():
-            return []
-        lines = ai_test_log.read_text(encoding="utf-8").splitlines()
-        return lines[start_line:] if start_line < len(lines) else []
+        return web.json_response({
+            "logs": recent,
+            "count": len(recent),
+        })
 
-    async def get_logs(self, count: int = 10) -> dict:
-        """获取最近指定数量的日志
-
-        Args:
-            count: 要获取的日志数量，默认10条，最多100条
-
-        Returns:
-            包含 logs 和 count 的字典
-        """
-        count = min(count, 100)
-        recent_lines = self._get_recent_logs(count)
-        return {"logs": recent_lines, "count": len(recent_lines)}
+    async def _handle_health(self, _request: web.Request) -> web.Response:
+        """健康检查"""
+        return web.json_response({"status": "ok"})
 
 
 class AITestBot(Bot):

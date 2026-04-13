@@ -3,3 +3,4 @@ websockets
 loguru
 python-dotenv
 mcp
+aiohttp
