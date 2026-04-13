@@ -3,7 +3,7 @@
 from dorobot import Plugin, Message
 
 
-app = Plugin(name="hello", layer=1, description="问候插件", default_active=True)
+app = Plugin(name="hello", layer=1, description="问候插件")
 
 
 @app.on_message()

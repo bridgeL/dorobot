@@ -3,7 +3,7 @@
 from dorobot import Plugin, Message
 
 
-app = Plugin(name="echo", layer=1, description="回声插件 - /echo 后跟文本，Bot 会原样回复", default_active=True)
+app = Plugin(name="echo", layer=1, description="回声插件 - /echo 后跟文本，Bot 会原样回复")
 
 
 @app.on_command("echo")

@@ -4,7 +4,7 @@ from collections import Counter
 from dorobot import Plugin, Message
 
 
-app = Plugin(name="字频统计", layer=3, description="统计群里各成员的字频", default_active=True)
+app = Plugin(name="字频统计", layer=3, description="统计群里各成员的字频")
 
 
 @app.on_message()
