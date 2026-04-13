@@ -2,3 +2,4 @@ pydantic
 websockets
 loguru
 python-dotenv
+mcp

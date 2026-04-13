@@ -1,16 +1,12 @@
 """DoroBot 工具函数"""
+
 import sys
-import asyncio
 import importlib
 from pathlib import Path
 from loguru import logger
 
 
-def init_logging(
-    level: str = "INFO",
-    format_str: str | None = None,
-    sink = sys.stdout
-):
+def init_logging(level: str = "INFO", format_str: str | None = None, sink=sys.stdout):
     """初始化日志配置
 
     Args:
@@ -41,7 +37,7 @@ def init_logging(
         level=level,
         rotation="1 day",  # 每天轮转
         retention="30 days",  # 保留30天
-        compression="zip"  # 压缩旧日志
+        compression="zip",  # 压缩旧日志
     )
 
     logger.debug(f"Logging initialized with level: {level}")
@@ -74,7 +70,11 @@ def load_plugins():
     # 扫描子目录插件: plugins/*/__init__.py
     for subdir in plugins_dir.iterdir():
         # 如果有__init__.py，说明这是一个包，可以直接加载
-        if subdir.is_dir() and not subdir.name.startswith("_") and (subdir / "__init__.py").exists():
+        if (
+            subdir.is_dir()
+            and not subdir.name.startswith("_")
+            and (subdir / "__init__.py").exists()
+        ):
             plugins_to_load.append(f"plugins.{subdir.name}")
 
     loaded = []
@@ -87,33 +87,3 @@ def load_plugins():
             logger.exception(f"Failed to load plugin {module_name}: {e}")
 
     return loaded
-
-
-def run():
-    """启动 DoroBot，阻塞直到收到 KeyboardInterrupt"""
-    from .adapter_manager import adapter_manager
-    from .space_manager import space_manager
-
-    async def _run():
-        logger.info("=" * 50)
-        logger.info("DoroBot Starting...")
-        logger.info("=" * 50)
-
-        # adapter 管理外部系统生命周期
-        # adapter.start() 会注册 bot 到 bot_manager，并启动它们
-        await adapter_manager.start_all()
-
-        # 启动 Space 持久化任务
-        space_manager.start()
-
-        # 保持运行直到收到停止信号
-        while True:
-            await asyncio.sleep(1)
-
-    try:
-        asyncio.run(_run())
-    except KeyboardInterrupt:
-        pass
-    finally:
-        space_manager.stop()
-        logger.info("DoroBot stopped")

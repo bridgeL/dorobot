@@ -41,8 +41,10 @@ class Space(dict):
         self._memory = memory
         # memory 模式不注册到 manager，不参与持久化
         if not memory:
-            from .space_manager import space_manager
-            space_manager.register(self)
+            from .context import get_dorobot
+            dorobot = get_dorobot()
+            if dorobot:
+                dorobot.space_manager.register(self)
 
     @property
     def name(self) -> str:

@@ -1,6 +1,8 @@
 """插件基类定义"""
 
-from abc import ABC, abstractmethod
+import re
+from abc import ABC
+from typing import Callable, Optional
 from loguru import logger
 
 from .context import get_bot_id, get_session_id
@@ -19,7 +21,7 @@ class Plugin(ABC):
     def __init__(
         self,
         name: str,
-        layer: int = 2,
+        layer: int = 1,
         description: str = "",
         bots: list[type] | None = None,
         scope: str | None = None,
@@ -42,33 +44,191 @@ class Plugin(ABC):
         self.scope = scope  # None=全部, "private"=仅私聊, "group"=仅群聊
         self.default_active = default_active
 
-    @abstractmethod
-    async def handle_message(self, message: Message) -> bool:
-        """处理消息
+        # open/close 回调
+        self._on_open: Optional[Callable] = None
+        self._on_close: Optional[Callable] = None
 
-        Args:
-            message: 消息对象
+        # 消息处理回调
+        self._handler: Optional[Callable[[Message], bool]] = None
+        # 命令处理回调 {cmd: handler}
+        self._command_handlers: dict[str, Callable[[Message, str], bool]] = {}
+        # 正则处理回调 {pattern: (compiled_regex, handler)}
+        self._regex_handlers: dict[str, tuple[re.Pattern, Callable[[Message, re.Match], bool]]] = {}
+
+    def register(self) -> bool:
+        """注册插件到插件管理器
 
         Returns:
-            bool: True表示继续传递消息到下一层，False表示中断传递
+            bool: 是否注册成功，重名则返回 False
         """
-        pass
+        from .plugin_manager import plugin_manager
+        return plugin_manager.register(self.name, self)
 
-    async def on_activate(self):
-        """插件被激活时调用
+    def on_message(self):
+        """装饰器：注册消息处理函数
 
-        子类可重写此方法，在插件被激活时执行初始化逻辑。
-        例如：初始化状态、加载数据等。
+        使用方式：
+            @app.on_message()
+            async def handle(message):
+                ...
+                return True  # 返回 True 继续传递，False 中断
         """
-        pass
+        def decorator(func: Callable[[Message], bool]):
+            self._handler = func
+            return func
+        return decorator
 
-    def on_deactivate(self):
-        """插件被关闭时调用
+    def on_command(self, cmd: str):
+        """装饰器：注册命令处理函数
 
-        子类可重写此方法，在插件被关闭时执行清理逻辑。
-        例如：保存状态、释放资源等。
+        使用方式：
+            @app.on_command("start")
+            async def handle(message, args):
+                ...
+                return True
         """
-        pass
+        def decorator(func: Callable[[Message, str], bool]):
+            self._command_handlers[cmd] = func
+            return func
+        return decorator
+
+    def on_regex(self, pattern: str):
+        """装饰器：注册正则处理函数
+
+        使用方式：
+            @app.on_regex(r"^play (\w+)$")
+            async def handle(message, match):
+                ...
+                return True
+        """
+        def decorator(func: Callable[[Message, re.Match], bool]):
+            self._regex_handlers[pattern] = (re.compile(pattern), func)
+            return func
+        return decorator
+
+    async def handle_message(self, message: Message) -> bool:
+        """处理消息（内部调度）
+
+        按 command → regex → msg 顺序匹配并调用处理器。
+        任一处理器返回 False 则中断传递。
+        """
+        from .config import global_config
+
+        content = message.content.strip()
+        cmd_prefix = global_config.cmd_prefix
+
+        # 检查命令
+        for cmd, handler in self._command_handlers.items():
+            full_cmd = f"{cmd_prefix}{cmd}"
+            if content == full_cmd or content.startswith(f"{full_cmd} "):
+                args = content[len(full_cmd):].lstrip() if len(content) > len(full_cmd) else ""
+                result = await handler(message, args)
+                if result is False:
+                    return False
+                break
+
+        # 检查正则
+        for pattern, (compiled, handler) in self._regex_handlers.items():
+            m = compiled.match(content)
+            if m:
+                result = await handler(message, m)
+                if result is False:
+                    return False
+
+        # 检查通用消息处理器
+        if self._handler:
+            return await self._handler(message)
+
+        return True
+
+    async def handle_activate(self):
+        """激活时内部调用，触发 on_open 回调"""
+        if self._on_open:
+            await self._on_open()
+
+    async def handle_deactivate(self):
+        """关闭时内部调用，触发 on_close 回调"""
+        from .context import get_dorobot
+        dorobot = get_dorobot()
+        if dorobot:
+            dorobot.session_manager.unmount_plugin_all(self.name)
+        if self._on_close:
+            result = self._on_close()
+            import asyncio
+            if asyncio.iscoroutine(result):
+                await result
+
+    def on_open(self):
+        """装饰器：注册插件启动时的回调
+
+        使用方式：
+            @app.on_open()
+            async def handle():
+                ...
+        """
+        def decorator(func: Callable):
+            self._on_open = func
+            return func
+        return decorator
+
+    def on_close(self):
+        """装饰器：注册插件关闭时的回调
+
+        使用方式：
+            @app.on_close()
+            async def handle():
+                ...
+        """
+        def decorator(func: Callable):
+            self._on_close = func
+            return func
+        return decorator
+
+    def mount_to(self, private_session_id: str) -> bool:
+        """挂载到指定私聊 session 的 Layer 1
+
+        只有 scope=group 的插件可以发起挂载。
+
+        Args:
+            private_session_id: 目标私聊 session_id
+
+        Returns:
+            bool: 是否挂载成功
+        """
+        from .context import get_dorobot
+
+        if self.scope != "group":
+            logger.warning(f"[Plugin:{self.name}] mount_to: only scope=group plugins can mount")
+            return False
+
+        dorobot = get_dorobot()
+        if not dorobot:
+            return False
+        return dorobot.session_manager.mount_plugin(self.name, private_session_id)
+
+    def unmount_from(self, private_session_id: str) -> bool:
+        """从指定私聊 session 卸载
+
+        Args:
+            private_session_id: 目标私聊 session_id
+
+        Returns:
+            bool: 是否卸载成功
+        """
+        from .context import get_dorobot
+
+        dorobot = get_dorobot()
+        if not dorobot:
+            return False
+        return dorobot.session_manager.unmount_plugin(self.name, private_session_id)
+
+    def unmount_from_all(self):
+        """取消所有跨 session 挂载"""
+        from .context import get_dorobot
+
+        dorobot = get_dorobot()
+        if dorobot:
+            dorobot.session_manager.unmount_plugin_all(self.name)
 
     def get_session(self):
         """获取当前 Session 对象
@@ -76,9 +236,12 @@ class Plugin(ABC):
         插件可以通过此方法获取当前会话，读写 session.data。
         不在消息处理上下文中时返回 None。
         """
-        from .session_manager import session_manager
+        from .context import get_dorobot
 
-        return session_manager.get_session(get_session_id())
+        dorobot = get_dorobot()
+        if not dorobot:
+            return None
+        return dorobot.session_manager.get_session(get_session_id())
 
     def get_bot(self):
         """获取当前 Bot 对象
@@ -86,9 +249,12 @@ class Plugin(ABC):
         插件可以通过此方法获取当前 Bot 实例。
         不在消息处理上下文中时返回 None。
         """
-        from .bot_manager import bot_manager
+        from .context import get_dorobot
 
-        return bot_manager.get_bot(get_bot_id())
+        dorobot = get_dorobot()
+        if not dorobot:
+            return None
+        return dorobot.bot_manager.get_bot(get_bot_id())
 
     def get_space(self, memory: bool = True):
         """获取当前插件在当前会话的 Space
@@ -104,25 +270,6 @@ class Plugin(ABC):
             return None
         return Space(self.name, session_id, memory=memory)
 
-    def matches_context(self, bot, session_type: str) -> bool:
-        """检查插件是否应该在当前上下文中处理消息
-
-        Args:
-            bot: 当前 Bot 实例，None 表示无 Bot 上下文
-            session_type: 会话类型，"group" 或 "private"
-
-        Returns:
-            bool: True 表示插件应该处理此消息，False 表示跳过
-        """
-        # 检查 Bot 类型
-        if self.bots is not None and bot is not None:
-            if not any(isinstance(bot, bot_type) for bot_type in self.bots):
-                return False
-        # 检查会话类型
-        if self.scope is not None and self.scope != session_type:
-            return False
-        return True
-
     async def send_message(
         self, content: str, session_id: str | None = None, bot_id: str | None = None
     ):
@@ -135,7 +282,7 @@ class Plugin(ABC):
             session_id: 目标会话ID，None 则使用当前上下文中的 session_id
             bot_id: Bot 的唯一标识，None 则从上下文获取
         """
-        from .bot_manager import bot_manager
+        from .context import get_dorobot
 
         if bot_id is None:
             bot_id = get_bot_id()
@@ -155,8 +302,12 @@ class Plugin(ABC):
             )
             return
 
+        dorobot = get_dorobot()
+        if not dorobot:
+            return
+
         # 从 bot_manager 获取 bot 并发送消息
-        bot = bot_manager.get_bot(bot_id)
+        bot = dorobot.bot_manager.get_bot(bot_id)
         if bot:
             await bot.send(session_id, content)
         else:

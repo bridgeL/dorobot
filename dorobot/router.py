@@ -6,7 +6,6 @@
 from loguru import logger
 
 from .message import Message
-from .session_manager import session_manager
 from . import context
 
 
@@ -25,6 +24,10 @@ class MessageRouter:
        - 2层（应用层）：独占层，只能激活1个插件
        - 3层（共享层）：共享层，可激活多个插件
     """
+
+    def __init__(self, dorobot: "Dorobot"):
+        self._dorobot = dorobot
+
     async def handle_message(self, bot_id: str, message: Message) -> bool:
         """处理 Bot 发来的消息
 
@@ -42,10 +45,11 @@ class MessageRouter:
         # 设置上下文变量
         context.bot_id.set(bot_id)
         context.session_id.set(session_id)
+        context.set_dorobot(self._dorobot)
 
         try:
             # 通过 SessionManager 获取或创建会话
-            session = await session_manager.get_or_create_session(
+            session = await self._dorobot.session_manager.get_or_create_session(
                 session_id,
                 type=message.session_type,
                 group_id=message.group_id,
@@ -59,7 +63,3 @@ class MessageRouter:
         finally:
             # 清理上下文（可选，因为contextvars会自动处理）
             pass
-
-
-# 全局 MessageRouter 实例
-router = MessageRouter()

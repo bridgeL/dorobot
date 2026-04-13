@@ -18,6 +18,7 @@ class Bot(ABC):
 
     def __init__(self, self_id: str = ""):
         self.self_id: str = self_id
+        self._dorobot: "Dorobot" = None  # type: ignore[name-defined]
 
     @abstractmethod
     async def send(self, session_id: str, content: str):
@@ -57,9 +58,9 @@ class Bot(ABC):
         Args:
             message: 消息对象
         """
-        from .router import router
-
-        await router.handle_message(self.self_id, message)
+        if not self._dorobot:
+            return
+        await self._dorobot.router.handle_message(self.self_id, message)
 
     @abstractmethod
     async def start(self):

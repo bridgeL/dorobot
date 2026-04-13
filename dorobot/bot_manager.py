@@ -1,7 +1,7 @@
 """Bot 管理器
 
 统一管理所有 Bot 实例的注册、初始化和生命周期。
-采用单例模式，全局只有一个 BotManager 实例。
+每个 Dorobot 实例拥有自己的 BotManager。
 """
 from typing import Optional, Type
 import asyncio
@@ -19,7 +19,8 @@ class BotManager:
     - 统一管理所有 Bot 的启动和停止
     """
 
-    def __init__(self):
+    def __init__(self, dorobot: "Dorobot"):
+        self._dorobot = dorobot
         self._bot_classes: dict[str, Type[Bot]] = {}  # name -> BotClass
         self._bot_instances: dict[str, Bot] = {}      # name -> BotInstance
         self._bot_metadata: dict[str, dict] = {}      # name -> {auto_start, ...}
@@ -105,6 +106,7 @@ class BotManager:
 
     def add_bot(self, bot: Bot):
         """添加 Bot 实例"""
+        bot._dorobot = self._dorobot
         self._bot_instances[bot.self_id] = bot
 
     def remove_bot(self, bot_id: str):
@@ -168,7 +170,3 @@ class BotManager:
         self._bot_instances.clear()
         self._bot_metadata.clear()
         logger.warning("BotManager cleared all registrations")
-
-
-# 全局 BotManager 实例
-bot_manager = BotManager()

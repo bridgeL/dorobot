@@ -4,7 +4,8 @@ from .adapter import Adapter
 
 
 class AdapterManager:
-    def __init__(self):
+    def __init__(self, dorobot: "Dorobot"):
+        self._dorobot = dorobot
         self._adapters: dict[str, Adapter] = {}
 
     def register(self, adapter: Adapter) -> bool:
@@ -12,6 +13,8 @@ class AdapterManager:
         if name in self._adapters:
             logger.warning(f"Adapter {name} already registered")
             return False
+
+        adapter.bind_dorobot(self._dorobot)
 
         self._adapters[name] = adapter
         logger.info(f"Registered Adapter: {name}")
@@ -24,11 +27,23 @@ class AdapterManager:
             tasks.append(self._start_adapter_safe(name, adapter))
         await asyncio.gather(*tasks, return_exceptions=True)
 
+    async def stop_all(self):
+        """停止所有适配器"""
+        tasks = []
+        for name, adapter in self._adapters.items():
+            tasks.append(self._stop_adapter_safe(name, adapter))
+        await asyncio.gather(*tasks, return_exceptions=True)
+        self._adapters.clear()
+
     async def _start_adapter_safe(self, name: str, adapter: Adapter):
         try:
             await adapter.start()
         except Exception as e:
             logger.error(f"Adapter {name} failed to start: {e}")
 
-
-adapter_manager = AdapterManager()
+    async def _stop_adapter_safe(self, name: str, adapter: Adapter):
+        try:
+            await adapter.stop()
+            logger.info(f"Adapter {name} stopped")
+        except Exception as e:
+            logger.error(f"Adapter {name} failed to stop: {e}")

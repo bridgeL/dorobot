@@ -18,7 +18,8 @@ class SpaceManager:
     也不影响其他 Space 的持久化。
     """
 
-    def __init__(self):
+    def __init__(self, dorobot: "Dorobot"):
+        self._dorobot = dorobot
         self.spaces: dict[str, Space] = {}
         self._running = False
         self._task: asyncio.Task | None = None
@@ -43,11 +44,6 @@ class SpaceManager:
             # 将路径转回 names：a/b/c.json -> ("a", "b", "c")
             name_parts = tuple(str(rel_path)[:-5].split("/"))
             Space(*name_parts)  # 单例获取或创建
-
-
-def init_space():
-    """初始化 Space 持久化，从磁盘加载数据"""
-    space_manager.init()
 
     async def _scan_loop(self):
         """定期扫描并保存 dirty 的 Space"""
@@ -74,7 +70,3 @@ def init_space():
         for space in self.spaces.values():
             if space.dirty:
                 space.save()
-
-
-# 全局单例
-space_manager = SpaceManager()

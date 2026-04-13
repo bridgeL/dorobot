@@ -48,60 +48,95 @@ python app.py
 
 ## 快速创建插件
 
-框架提供了一组装饰器，用于快速将一个方法变成插件：
+插件开发流程：实例化 → 注册处理器 → 注册到管理器。
 
 ```python
-from dorobot import on_command, on_keyword, on_pattern, Message
+from dorobot import Plugin, Message
+
+app = Plugin(name="my_plugin", layer=1, description="我的插件")
+app.register()
+```
+
+### on_message - 消息处理
+
+每次收到消息都会触发：
+
+```python
+@app.on_message()
+async def handle(msg: Message) -> bool:
+    await app.send_message(f"收到：{msg.content}")
+    return True  # 返回 True 继续传递，False 中断
 ```
 
 ### on_command - 命令触发
 
-以指定命令字符串触发，前缀默认为 `/`：
+以命令字符串触发，前缀默认为 `/`：
 
 ```python
-@on_command("echo")  # 匹配 /echo
-async def echo(message: Message, plugin: Plugin, arg: str):
-    """回声插件"""
-    await plugin.send_message(arg)
+@app.on_command("echo")
+async def handle(msg: Message, arg: str) -> bool:
+    await app.send_message(arg)
+    return False  # 命令已处理，中断传递
 ```
 
-### on_keyword - 关键词触发
-
-消息包含关键词时触发（不区分大小写）：
-
-```python
-# 单个关键词
-@on_keyword("你好")
-async def hello(message: Message, plugin: Plugin):
-    """问候插件"""
-    await plugin.send_message(f"👋 你好，{message.sender_name}！")
-
-# 多个关键词
-@on_keyword(["你好", "hello"])
-async def hello(message: Message, plugin: Plugin):
-    """问候插件"""
-    await plugin.send_message(f"👋 你好，{message.sender_name}！")
-```
-
-### on_pattern - 正则匹配触发
+### on_regex - 正则匹配触发
 
 匹配正则表达式时触发，可通过 `match` 对象获取捕获组：
 
 ```python
-@on_pattern(r"^@(.+?)\s+(.+)$")
-async def at_someone(message: Message, plugin: Plugin, match):
-    """@成员发消息"""
-    await plugin.send_message(f"已转告 {match.group(1)}：{match.group(2)}")
+@app.on_regex(r"^@(.+?)\s+(.+)$")
+async def handle(msg: Message, match) -> bool:
+    await app.send_message(f"已转告 {match.group(1)}：{match.group(2)}")
+    return False
+```
+
+### on_open / on_close - 生命周期
+
+```python
+@app.on_open()
+async def on_open():
+    print("插件激活")
+
+@app.on_close()
+async def on_close():
+    print("插件关闭")
 ```
 
 ### 发送消息
 
-使用 `plugin.send_message()` 发送消息到当前会话：
+使用 `app.send_message()` 发送消息到当前会话：
 
 ```python
-await plugin.send_message("Hello!")
-await plugin.send_message(f"@{message.sender_name}", session_id="ntqq.group.123456")  # 指定会话
+await app.send_message("Hello!")
+await app.send_message(f"@{msg.sender_name}", session_id="ntqq.group.123456")  # 指定会话
 ```
+
+### 完整示例
+
+```python
+from dorobot import Plugin, Message
+
+app = Plugin(name="echo", layer=1, description="回声插件")
+
+@app.on_command("echo")
+async def handle(msg: Message, arg: str) -> bool:
+    await app.send_message(arg)
+    return False
+
+app.register()
+```
+
+### 跨 Session 挂载
+
+scope=group 的插件可以挂载到私聊 session：
+
+```python
+app.mount_to("private_session_id")      # 挂载
+app.unmount_from("private_session_id")  # 卸载
+app.unmount_from_all()                  # 卸载全部
+```
+
+主 session 关闭插件时，所有挂载自动清除。
 
 ---
 
@@ -242,19 +277,15 @@ space = Space("temp_data", session_id, memory=True)
 
 ### 插件中使用
 
-插件使用 Space 有两种方式：
-
 ```python
-class MyPlugin(Plugin):
-    async def handle_message(self, message: Message) -> bool:
-        # 方式1：通过 get_space() 获取（自动绑定插件名和会话ID）
-        space = self.get_space(memory=False)
+app = Plugin(name="my_plugin", layer=1)
 
-        # 方式2：直接实例化
-        space = Space("my_plugin", "随便你", memory=False)
-
-        space["visit_count"] = space.get("visit_count", 0) + 1
-        return True
+@app.on_message()
+async def handle(msg: Message) -> bool:
+    # 通过 get_space() 获取（自动绑定插件名和会话ID）
+    space = app.get_space(memory=False)
+    space["visit_count"] = space.get("visit_count", 0) + 1
+    return True
 ```
 
 ---
@@ -264,22 +295,25 @@ class MyPlugin(Plugin):
 通过 `bot.call_api()` 调用平台原生 API：
 
 ```python
+from dorobot import Plugin, Message
 from dorobot.adapters.ntqq import NTQQBot
 
-class MyPlugin(Plugin):
-    async def handle_message(self, message: Message) -> bool:
-        bot: NTQQBot = self.get_bot()
+app = Plugin(name="my_plugin", layer=1)
 
-        # 发送群消息
-        await bot.call_api("send_group_msg", {
-            "group_id": "123456",
-            "message": [{"type": "text", "data": {"text": "Hello!"}}]
-        })
+@app.on_message()
+async def handle(msg: Message) -> bool:
+    bot: NTQQBot = app.get_bot()
 
-        # 获取群成员信息
-        members = await bot.call_api("get_group_member_list", {
-            "group_id": "123456"
-        })
+    # 发送群消息
+    await bot.call_api("send_group_msg", {
+        "group_id": "123456",
+        "message": [{"type": "text", "data": {"text": "Hello!"}}]
+    })
+
+    # 获取群成员信息
+    members = await bot.call_api("get_group_member_list", {
+        "group_id": "123456"
+    })
 ```
 
 适用场景：调用平台提供的其他 API（如获取群成员信息、查询用户资料等）。
@@ -351,3 +385,6 @@ AI：正在使用 AITestAdapter 测试 demo.py 插件...
 
 详见 [Skill: 插件调试](.claude/skills/test-plugin/skill.md)
 
+# 添加mcp server
+
+claude mcp add --transport stdio dorobot --scope project python server.py

@@ -12,7 +12,6 @@ from .layer import (
     layer_prototype,
 )
 from .plugin_manager import plugin_manager
-from .bot_manager import bot_manager
 
 
 class Session:
@@ -35,38 +34,29 @@ class Session:
     插件实例是全局共享的，通过 PluginManager 获取。
     """
 
-    def __init__(self, session_id: str, type: str = "private", group_id: str = "", user_id: str = ""):
+    def __init__(
+        self,
+        session_id: str,
+        type: str = "private",
+        group_id: str = "",
+        user_id: str = "",
+        dorobot: "Dorobot" = None,  # type: ignore[name-defined]
+    ):
         """
         Args:
             session_id: 会话唯一标识
             type: 会话类型，"group" 或 "private"
             group_id: 群号（仅群聊有效）
             user_id: 用户 ID
+            dorobot: Dorobot 实例
         """
         self.session_id = session_id
         self.type = type
         self.group_id = group_id
         self.user_id = user_id
-        # 从原型复制 layer 结构
-        self._layers: dict[int, Layer] = layer_prototype.create_layers()
-        # 自动激活 default_active 的插件
-        self._activate_default_plugins()
-
-    def _activate_default_plugins(self):
-        """激活所有默认激活的插件"""
-        for name in plugin_manager.list_plugins():
-            plugin = plugin_manager.get_plugin(name)
-            if plugin is None:
-                continue
-            # Layer 0 插件（meta层）始终自动激活
-            if plugin.layer == 0:
-                layer = self._layers.get(0)
-                if layer and layer.can_activate(name):
-                    layer.activate_plugin(name, self.session_id, silent=True)
-            elif plugin.default_active:
-                layer = self._layers.get(plugin.layer)
-                if layer and layer.can_activate(name):
-                    layer.activate_plugin(name, self.session_id, silent=True)
+        self._dorobot = dorobot
+        # 从原型复制 layer 结构（同时根据 session 类型填充各层插件集合）
+        self._layers: dict[int, Layer] = layer_prototype.create_layers(type)
 
     def _get_layer(self, layer_id: int) -> Layer | None:
         """获取指定层（如果不存在返回 None）"""
@@ -90,17 +80,15 @@ class Session:
         """
         layer = self._get_layer(layer_id)
         if layer is None:
-            raise Exception(
-                f"会话中不存在第 {layer_id} 层"
-            )
+            raise Exception(f"会话中不存在第 {layer_id} 层")
         result = layer.activate_plugin(plugin_name, self.session_id, silent=silent)
         if result:
             plugin = plugin_manager.get_plugin(plugin_name)
             if plugin:
                 try:
-                    await plugin.on_activate()
+                    await plugin.handle_activate()
                 except Exception as e:
-                    logger.error(f"Plugin {plugin_name} on_activate failed: {e}")
+                    logger.error(f"Plugin {plugin_name} handle_activate failed: {e}")
         return result
 
     async def deactivate_plugin(self, plugin_name: str, layer_id: int) -> bool:
@@ -118,17 +106,15 @@ class Session:
         """
         layer = self._layers.get(layer_id)
         if not layer:
-            raise Exception(
-                f"会话中不存在第 {layer_id} 层"
-            )
+            raise Exception(f"会话中不存在第 {layer_id} 层")
         result = layer.deactivate_plugin(plugin_name, self.session_id)
         if result:
             plugin = plugin_manager.get_plugin(plugin_name)
             if plugin:
                 try:
-                    plugin.on_deactivate()
+                    await plugin.handle_deactivate()
                 except Exception as e:
-                    logger.error(f"Plugin {plugin_name} on_deactivate failed: {e}")
+                    logger.error(f"Plugin {plugin_name} handle_deactivate failed: {e}")
         return result
 
     def deactivate_all_plugins(self):
@@ -153,31 +139,35 @@ class Session:
         sorted_layers = self.get_all_layers()
 
         for layer in sorted_layers:
-            active_plugin_names = set(layer.get_active_plugins())
-            # 获取该层所有插件
-            all_plugin_names = set(
-                plugin_manager.get_plugins_by_layer(layer.layer_id)
-            )
-            inactive_plugin_names = all_plugin_names - active_plugin_names
-
-            logger.debug(
-                f"[Session] Layer {layer.layer_id}: 激活={list(active_plugin_names)}, 未激活={list(inactive_plugin_names)}"
-            )
+            active_plugin_names = layer.get_active_plugins()
 
             if not active_plugin_names:
                 continue
 
+            logger.debug(
+                f"[Session] Layer {layer.layer_id}: 激活={active_plugin_names}"
+            )
+
             # 获取插件实例（从全局注册中心）
             active_plugins: list[Plugin] = []
             current_bot_id = context.get_bot_id()
-            current_bot = bot_manager.get_bot(current_bot_id) if current_bot_id else None
+            current_bot = (
+                self._dorobot.bot_manager.get_bot(current_bot_id) if current_bot_id else None
+            )
 
             for name in active_plugin_names:
                 plugin = plugin_manager.get_plugin(name)
                 if plugin:
-                    if not plugin.matches_context(current_bot, self.type):
-                        logger.debug(f"[Session] Plugin({name}) skipped: context mismatch")
-                        continue
+                    # 检查 Bot 类型
+                    if plugin.bots is not None and current_bot is not None:
+                        if not any(
+                            isinstance(current_bot, bot_type)
+                            for bot_type in plugin.bots
+                        ):
+                            logger.debug(
+                                f"[Session] Plugin({name}) skipped: bot type mismatch"
+                            )
+                            continue
                     active_plugins.append(plugin)
                 else:
                     logger.warning(
@@ -196,7 +186,7 @@ class Session:
                 plugin_name = list(active_plugin_names)[i]
                 if isinstance(result, Exception):
                     logger.exception(
-                        f"[Session] Plugin({plugin_name}) raised exception: {result}"
+                        f"[Session] Plugin({plugin_name}) raised exception: {repr(result)}"
                     )
                     continue
                 if result is False:

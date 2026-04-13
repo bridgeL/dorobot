@@ -8,7 +8,6 @@ from websockets import ServerConnection
 
 from dorobot.bot import Bot
 from dorobot.adapter import Adapter
-from dorobot.bot_manager import bot_manager
 from dorobot.message import Message
 
 
@@ -23,10 +22,10 @@ class NTQQAdapter(Adapter):
         self._client_counter = 0
 
     def _register_bot(self, bot: Bot):
-        bot_manager.add_bot(bot)
+        self._dorobot.bot_manager.add_bot(bot)
 
     def _unregister_bot(self, bot_id: str):
-        bot_manager.remove_bot(bot_id)
+        self._dorobot.bot_manager.remove_bot(bot_id)
 
     async def _handle_client(self, websocket: ServerConnection):
         self._client_counter += 1
