@@ -54,7 +54,7 @@ python app.py
 from dorobot import Plugin, Message
 
 app = Plugin(name="my_plugin", layer=1, description="我的插件")
-app.register()
+app.register() # 注册到管理器
 ```
 
 ### on_message - 消息处理
@@ -125,18 +125,6 @@ async def handle(msg: Message, arg: str) -> bool:
 
 app.register()
 ```
-
-### 跨 Session 挂载
-
-scope=group 的插件可以挂载到私聊 session：
-
-```python
-app.mount_to("private_session_id")      # 挂载
-app.unmount_from("private_session_id")  # 卸载
-app.unmount_from_all()                  # 卸载全部
-```
-
-主 session 关闭插件时，所有挂载自动清除。
 
 ---
 
@@ -237,6 +225,18 @@ CMD_PREFIX=.
 
 ---
 
+## 跨 Session 挂载
+
+scope=group 的插件可以挂载到私聊 session：
+
+```python
+app.mount_to("private_session_id")      # 挂载（挂载将自动挂载到该私聊的 layer 1 层
+app.unmount_from("private_session_id")  # 卸载
+app.unmount_from_all()                  # 卸载全部
+```
+
+主 session 关闭插件时，所有挂载自动清除。
+
 ## Space 持久化
 
 Space 是基于文件系统的持久化键值存储，适合存储插件的会话相关数据。Space是单例模式。相同names创建出的Space指向同一对象。
@@ -262,7 +262,7 @@ print(space["key"])  # value
 | `Space("user", "123")` | `space/user/123.json` |
 | `Space("char_freq", session_id)` | `space/char_freq/{session_id}.json` |
 
-### 持久化模式
+### 两种持久化模式
 
 Space 支持两种持久化模式：
 
@@ -275,7 +275,7 @@ Space 支持两种持久化模式：
 space = Space("temp_data", session_id, memory=True)
 ```
 
-### 插件中使用
+### 插件中获取
 
 ```python
 app = Plugin(name="my_plugin", layer=1)
@@ -371,20 +371,16 @@ session_id user_id content
 
 ## 使用 AITestAdapter 自动调试
 
-AITestAdapter 是基于 FastAPI 的 HTTP 测试服务器，支持通过 curl 命令模拟发送消息，适合 AI 自动化调试。
+需要做两方面的准备
 
-AI 可以自主完成插件开发和调试闭环：
+### 添加mcp server
 
+```bash
+claude mcp add --transport stdio dorobot --scope project python server.py
 ```
-用户：帮我调试插件demo.py，我已经启动了服务器
-AI：正在使用 AITestAdapter 测试 demo.py 插件...
-   $ curl -X POST http://localhost:18765/activate ...
-   $ curl -X POST http://localhost:18765/msg ...
-   插件响应正常，功能验证通过。
-```
+
+### 添加AITestAdapter
+
+AITestAdapter 是基于 FastAPI 的 HTTP 测试服务器，支持通过 MCP 向其发送http请求，模拟发送消息，适合 AI 自动化调试。
 
 详见 [Skill: 插件调试](.claude/skills/test-plugin/skill.md)
-
-# 添加mcp server
-
-claude mcp add --transport stdio dorobot --scope project python server.py
