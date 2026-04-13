@@ -1,7 +1,7 @@
 """犯人在跳舞插件 - 主插件"""
 
 from dorobot import Plugin, Message
-from .cards import generate_card_pool, deal_cards, Card
+from .card import generate_card_pool, deal_cards, Card
 
 
 app = Plugin(
