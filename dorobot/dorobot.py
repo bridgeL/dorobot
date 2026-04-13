@@ -41,18 +41,24 @@ class Dorobot:
 
     def init(self):
         """初始化 DoroBot：配置日志、加载插件、初始化 Space"""
-        from .utils import init_logging, load_plugins
+        from .utils import init_logging
         from . import context as ctx
 
-        ctx.set_dorobot(self)
         init_logging(level="DEBUG")
+        ctx.set_dorobot(self)
         self.space_manager.init()
-        load_plugins()
         logger.info("DoroBot initialized")
 
     def run_forever(self):
         """阻塞运行，永久保持直到 Ctrl+C"""
-        asyncio.run(self._run_blocking())
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            # 没有运行中的循环，创建新的
+            asyncio.run(self._run_blocking())
+        else:
+            # 已有循环在此线程中运行（如 Jupyter/Claude Code），使用 run_until_complete
+            loop.run_until_complete(self._run_blocking())
 
     def start(self):
         """后台启动，不阻塞，可通过 stop() 停止"""
@@ -120,3 +126,9 @@ class Dorobot:
             bool: 是否注册成功
         """
         return self.adapter_manager.register(adapter)
+
+    def load_plugins(self):
+        """加载插件"""
+        from .utils import load_plugins
+
+        load_plugins()

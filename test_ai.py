@@ -5,6 +5,6 @@ from dorobot.adapters.ai_test import AITestAdapter
 
 dorobot = Dorobot()
 dorobot.init()
-
 dorobot.add_adapter(AITestAdapter())
+dorobot.load_plugins()
 dorobot.run_forever()

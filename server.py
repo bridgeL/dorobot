@@ -15,12 +15,16 @@ _PROJECT_ROOT = Path(__file__).parent.resolve()
 
 
 @mcp.tool()
-def start_dorobot() -> str:
+async def start_dorobot() -> str:
     """启动 dorobot (子进程 python test_ai.py)"""
     global _process
 
     if _process is not None:
-        return "dorobot 已在运行"
+        # 检查进程是否已死
+        if _process.poll() is not None:
+            _process = None  # 进程已结束，清除引用
+        else:
+            return "dorobot 已在运行"
 
     _process = subprocess.Popen(
         ["python", "test_ai.py"],
@@ -29,23 +33,9 @@ def start_dorobot() -> str:
     )
 
     # 等待服务启动
-    asyncio.get_event_loop().run_until_complete(_wait_for_service())
+    await asyncio.sleep(0.5)
 
     return "dorobot 已启动"
-
-
-async def _wait_for_service(max_attempts: int = 30) -> bool:
-    """等待 HTTP 服务就绪"""
-    for _ in range(max_attempts):
-        try:
-            async with aiohttp.ClientSession() as session:
-                async with session.get(f"{_BASE_URL}/health", timeout=aiohttp.ClientTimeout(total=1)) as resp:
-                    if resp.status == 200:
-                        return True
-        except Exception:
-            pass
-        await asyncio.sleep(0.5)
-    return False
 
 
 @mcp.tool()
