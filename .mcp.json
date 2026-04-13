@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "dorobot": {
+      "type": "stdio",
+      "command": "python",
+      "args": [
+        "server.py"
+      ],
+      "env": {}
+    }
+  }
+}
