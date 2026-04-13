@@ -184,8 +184,8 @@ class Plugin(ABC):
             return func
         return decorator
 
-    def mount_to(self, private_session_id: str) -> bool:
-        """挂载到指定私聊 session 的 Layer 1
+    async def mount_to(self, private_session_id: str) -> bool:
+        """挂载到指定私聊 session 的 Layer 1（自动创建不存在的 session）
 
         只有 scope=group 的插件可以发起挂载。
 
@@ -204,7 +204,9 @@ class Plugin(ABC):
         dorobot = get_dorobot()
         if not dorobot:
             return False
-        return dorobot.session_manager.mount_plugin(self.name, private_session_id)
+        # 获取当前 session ID（父 session）
+        parent_session_id = get_session_id()
+        return await dorobot.session_manager.mount_plugin(self.name, private_session_id, parent_session_id)
 
     def unmount_from(self, private_session_id: str) -> bool:
         """从指定私聊 session 卸载
@@ -262,13 +264,25 @@ class Plugin(ABC):
         每个插件在每个会话都有独立的 Space，可用于存储该会话的数据。
         不在消息处理上下文中时返回 None。
 
+        如果当前 session 是通过 mount_to 挂载的子 session，
+        则自动返回父 session 的 Space（确保 mounted 插件能访问主 session 数据）。
+
         Args:
             memory: 是否使用内存模式，默认 True。False 则持久化到磁盘。
         """
         session_id = get_session_id()
         if not session_id:
             return None
-        return Space(self.name, session_id, memory=memory)
+
+        space = Space(self.name, session_id, memory=memory)
+
+        # 检查是否挂载到子 session，若是则返回父 session 的 space
+        parent_key = f"_parent_space_{self.name}_"
+        parent_session_id = space.get(parent_key)
+        if parent_session_id:
+            return Space(self.name, parent_session_id, memory=memory)
+
+        return space
 
     async def send_message(
         self, content: str, session_id: str | None = None, bot_id: str | None = None

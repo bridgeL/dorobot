@@ -88,21 +88,19 @@ class SessionManager:
 
     # === 跨 session 插件挂载 ===
 
-    def mount_plugin(self, plugin_name: str, target_session_id: str) -> bool:
-        """将插件挂载到目标 session 的 Layer 1
+    async def mount_plugin(self, plugin_name: str, target_session_id: str, parent_session_id: str | None = None) -> bool:
+        """将插件挂载到目标 session 的 Layer 1（自动创建不存在的 session）
 
         Args:
             plugin_name: 插件名称
             target_session_id: 目标私聊 session_id
+            parent_session_id: 父 session ID（调用 mount 时所在的 session）
 
         Returns:
             bool: 是否挂载成功
         """
         # 获取或创建目标 session
-        target_session = self._sessions.get(target_session_id)
-        if not target_session:
-            logger.warning(f"[SessionManager] mount_plugin: target session {target_session_id} not found")
-            return False
+        target_session = await self.get_or_create_session(target_session_id, type="private")
 
         # 在目标 session 的 Layer 1 激活插件
         try:
@@ -119,6 +117,12 @@ class SessionManager:
         if plugin_name not in self._mounts:
             self._mounts[plugin_name] = set()
         self._mounts[plugin_name].add(target_session_id)
+
+        # 将父 session ID 写入子 session 的 space（让 mounted 插件能访问主 session 数据）
+        if parent_session_id:
+            from .plugin import Space
+            child_space = Space(plugin_name, target_session_id, memory=True)
+            child_space[f"_parent_space_{plugin_name}_"] = parent_session_id
 
         logger.debug(f"[SessionManager] Plugin({plugin_name}) mounted to session {target_session_id}")
         return True
