@@ -35,12 +35,12 @@ async def cmd_test_trade(message, _):
 
     # 固定牌池：每人4张，方便测试交易
     fixed_cards = [
-        # 玩家1：第一发现人 + 3个普通人
-        "第一发现人", "普通人", "普通人", "普通人",
-        # 玩家2：3个交易 + 1个普通人
-        "交易", "交易", "交易", "普通人",
-        # 玩家3：4个普通人
-        "普通人", "普通人", "普通人", "普通人",
+        # 玩家1：第一发现人 + 2个交易 + 1个普通人
+        "第一发现人", "交易", "交易", "普通人",
+        # 玩家2：4个交易
+        "交易", "交易", "交易", "交易",
+        # 玩家3：神犬 + 3个交易
+        "神犬", "交易", "交易", "交易",
     ]
     pool = generate_fixed_pool(fixed_cards)
     hands = deal_cards(pool, 3)
@@ -75,7 +75,7 @@ async def cmd_test_trade(message, _):
     await app.send_message(f"🎮 【测试模式】游戏开始！共 3 名玩家参与。")
     await app.send_message(f"🔔 第一回合由 【{players[first_player_idx]['name']}】 开始。")
     await app.send_message("💬 请所有玩家查看私聊消息，获取自己的手牌！")
-    await app.send_message("📌 测试交易：玩家1有【第一发现人】【普通人】【普通人】【普通人】\n流程：1)玩家1出第一发现人 2)玩家2出一张普通牌 3)玩家3出一张普通牌 4)玩家1出交易")
+    await app.send_message("📌 测试交易：玩家1有【第一发现人】【交易】【交易】【普通人】\n流程：1)玩家1出第一发现人 2)玩家2出一张普通牌 3)玩家3出一张普通牌 4)玩家1出交易 @玩家2")
 
     # 挂载插件到各玩家私聊
     for player in players:
@@ -171,9 +171,9 @@ async def cmd_test_rumor(message, _):
     """测试用命令：使用固定牌池快速测试谣言功能
 
     固定牌池：
-    - 玩家1: 第一发现人、谣言、谣言、普通人
+    - 玩家1: 第一发现人、目击者、目击者、目击者
     - 玩家2: 谣言、谣言、谣言、谣言
-    - 玩家3: 神犬、谣言、谣言、谣言
+    - 玩家3: 普通人、普通人、普通人、普通人
     """
     space = app.get_space()
     state = space.get("state", "room")

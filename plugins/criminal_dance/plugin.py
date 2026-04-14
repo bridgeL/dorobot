@@ -645,7 +645,7 @@ async def handle_game_message(message: Message) -> bool:
     return False
 
 
-async def _play_card(player_idx: int, card_idx: int, card: Card, space, target_idx: int = -1, message=None):
+async def _play_card(player_idx: int, card_idx: int, card: Card, space: Space, target_idx: int = -1, message=None):
     """执行卡牌效果
 
     Args:
@@ -658,7 +658,7 @@ async def _play_card(player_idx: int, card_idx: int, card: Card, space, target_i
     import random
 
     players = _get_players(space)
-    hands = space.get("hands", [])
+    hands: list[list[Card]] = space.get("hands", [])
     player = players[player_idx]
 
     # 从手牌中移除这张牌
@@ -691,9 +691,8 @@ async def _play_card(player_idx: int, card_idx: int, card: Card, space, target_i
 
     # ========== 不在场证明 ==========
     elif card_name == "不在场证明":
-        space.setdefault("alibi_players", [])
-        if player_idx not in space["alibi_players"]:
-            space["alibi_players"].append(player_idx)
+        # 不在场证明是被动技能，打出时无效果
+        # 只有当被侦探质疑时，检查当前手牌是否持有不在场证明
         await app.send_message(f"【{player['name']}】声明自己不在场证明。")
 
     # ========== 犯人 ==========
@@ -711,11 +710,10 @@ async def _play_card(player_idx: int, card_idx: int, card: Card, space, target_i
     elif card_name == "侦探":
         target = players[target_idx]
         target_hand = hands[target_idx]
-        alibi_players = space.get("alibi_players", [])
 
-        # 检查目标是否有犯人且无不在场证明
+        # 检查目标当前手牌中是否有犯人且无不在场证明
         has_criminal = any(c.name == "犯人" for c in target_hand)
-        has_alibi = target_idx in alibi_players
+        has_alibi = any(c.name == "不在场证明" for c in target_hand)
 
         if has_criminal and not has_alibi:
             await app.send_message(f"🕵️ 【{player['name']}】质疑【{target['name']}】！")
