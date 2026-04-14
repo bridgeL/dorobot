@@ -93,6 +93,50 @@ async def send_message(
 
 
 @mcp.tool()
+async def kill_port() -> str:
+    """查找并杀掉占用 8765 端口的进程"""
+    try:
+        # Windows: netstat -ano | findstr :8765
+        result = subprocess.run(
+            ["netstat", "-ano"],
+            capture_output=True,
+            text=True,
+            creationflags=subprocess.CREATE_NO_WINDOW if hasattr(subprocess, "CREATE_NO_WINDOW") else 0,
+        )
+
+        lines = result.stdout.splitlines()
+        pids = set()
+        for line in lines:
+            if ":8765" in line and "LISTENING" in line:
+                parts = line.split()
+                if parts:
+                    pid = parts[-1]
+                    if pid.isdigit():
+                        pids.add(pid)
+
+        if not pids:
+            return "未发现占用 8765 端口的进程"
+
+        killed = []
+        for pid in pids:
+            try:
+                subprocess.run(
+                    ["taskkill", "/F", "/PID", pid],
+                    capture_output=True,
+                    creationflags=subprocess.CREATE_NO_WINDOW if hasattr(subprocess, "CREATE_NO_WINDOW") else 0,
+                )
+                killed.append(pid)
+            except Exception:
+                pass
+
+        if killed:
+            return f"已杀掉进程 PID: {', '.join(killed)}"
+        return "未能成功杀掉进程"
+    except Exception as e:
+        return f"操作失败: {e}"
+
+
+@mcp.tool()
 async def get_logs(count: int = 50) -> str:
     """获取最近的日志
 

@@ -116,6 +116,7 @@ class Plugin(ABC):
 
         content = message.content.strip()
         cmd_prefix = global_config.cmd_prefix
+        blocked = False
 
         # 检查命令
         for cmd, handler in self._command_handlers.items():
@@ -124,22 +125,26 @@ class Plugin(ABC):
                 args = content[len(full_cmd):].lstrip() if len(content) > len(full_cmd) else ""
                 result = await handler(message, args)
                 if result is False:
-                    return False
+                    blocked = True
+                    break
                 break
 
-        # 检查正则
-        for pattern, (compiled, handler) in self._regex_handlers.items():
-            m = compiled.match(content)
-            if m:
-                result = await handler(message, m)
-                if result is False:
-                    return False
+        if not blocked:
+            # 检查正则
+            for _, (compiled, handler) in self._regex_handlers.items():
+                m = compiled.match(content)
+                if m:
+                    result = await handler(message, m)
+                    if result is False:
+                        blocked = True
+                        break
 
-        # 检查通用消息处理器
-        if self._handler:
-            return await self._handler(message)
+        if not blocked and self._handler:
+            result = await self._handler(message)
+            if result is False:
+                blocked = True
 
-        return True
+        return not blocked
 
     async def handle_activate(self):
         """激活时内部调用，触发 on_open 回调"""
@@ -183,6 +188,23 @@ class Plugin(ABC):
             self._on_close = func
             return func
         return decorator
+
+    def close_self(self, session_id: str | None = None):
+        """请求关闭自身
+
+        将关闭请求添加到 Router，在当前消息处理结束后自动关闭。
+
+        Args:
+            session_id: 指定要关闭的 session，不指定则关闭当前 session
+        """
+        from .context import get_dorobot
+        dorobot = get_dorobot()
+        if dorobot and dorobot.router:
+            target = session_id if session_id else self.get_session().session_id if self.get_session() else None
+            if target:
+                if self.name not in dorobot.router._close_requests:
+                    dorobot.router._close_requests[self.name] = []
+                dorobot.router._close_requests[self.name].append((target, self.layer))
 
     async def mount_to(self, private_session_id: str) -> bool:
         """挂载到指定私聊 session 的 Layer 1（自动创建不存在的 session）

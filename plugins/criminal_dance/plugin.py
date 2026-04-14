@@ -1,6 +1,7 @@
 """犯人在跳舞插件 - 主插件"""
 
-from dorobot import Plugin, Message
+from dorobot import Plugin, Message, Space
+from dorobot.context import get_session_id
 from .card import generate_card_pool, deal_cards, Card
 
 
@@ -190,6 +191,7 @@ async def cmd_start(message: Message, args: str) -> bool:
     space["hands"] = hands
     space["turn"] = 0
     space["first_card_played"] = False
+    space["group_session"] = message.session_id
 
     # 确定第一回合起始玩家（第一个持有第一发现人的玩家）
     first_player_idx = 0
@@ -331,13 +333,237 @@ async def handle_game_message(message: Message) -> bool:
     if idx < 0:
         return True  # 不在游戏中
 
+    # ========== 处理交易子状态 ==========
+    sub_state = space.get("sub_state")
+    if sub_state == "trade_wait":
+        # 交易等待双方选择卡牌
+        trade_info = space.get("trade_info", {})
+        player_idx = trade_info.get("player_idx")
+        target_idx = trade_info.get("target_idx")
+        initiator_card = trade_info.get("initiator_card")
+        target_card = trade_info.get("target_card")
+
+        # 检查发送者是否是交易双方，且来自私聊
+        if idx != player_idx and idx != target_idx:
+            return True  # 非交易玩家不响应
+
+        # 交易响应必须在私聊中进行
+        if message.session_type != "private":
+            await app.send_message("⚠️ 请在私聊中回复交易！")
+            return False
+
+        # 解析玩家选择的手牌
+        player_hand = hands[idx]
+        selected_card = None
+        selected_idx = -1
+        for i, c in enumerate(player_hand):
+            if c.name == content:
+                selected_card = c
+                selected_idx = i
+                break
+
+        if selected_card is None:
+            card_names = [c.name for c in player_hand]
+            await app.send_message(f"❌ 你没有「{content}」这张牌！\n你的手牌：{'、'.join(card_names)}")
+            return False
+
+        # 记录选择
+        if idx == player_idx:
+            trade_info["initiator_card"] = selected_card
+            trade_info["initiator_idx"] = selected_idx
+            await app.send_message(f"✅ 你选择了【{selected_card.name}】，等待对方选择...")
+        else:
+            trade_info["target_card"] = selected_card
+            trade_info["target_card_idx"] = selected_idx
+            await app.send_message(f"✅ 你选择了【{selected_card.name}】，等待对方选择...")
+
+        # 检查是否双方都已选择
+        initiator_card = trade_info.get("initiator_card")
+        target_card = trade_info.get("target_card")
+
+        if initiator_card and target_card:
+            # 双方都选择了，执行交易
+            initiator_idx = trade_info.get("player_idx")
+            target_idx = trade_info.get("target_idx")
+            initiator_card_idx = trade_info.get("initiator_idx")
+            target_card_idx = trade_info.get("target_card_idx")
+
+            # 从手牌移除
+            initiator_hand = hands[initiator_idx]
+            target_hand = hands[target_idx]
+            initiator_give = initiator_hand.pop(initiator_card_idx)
+            target_give = target_hand.pop(target_card_idx)
+
+            # 交换
+            initiator_hand.append(target_give)
+            target_hand.append(initiator_give)
+
+            space["hands"] = hands
+            space["sub_state"] = None
+            space.pop("trade_info", None)
+
+            await app.send_message(f"🤝 交易完成！")
+            await app.send_message(f"🎴 【{players[initiator_idx]['name']}】给出了【{initiator_give.name}】，获得了【{target_give.name}】")
+            await app.send_message(f"🎴 【{players[target_idx]['name']}】给出了【{target_give.name}】，获得了【{initiator_give.name}】")
+            await _next_turn(space)
+        else:
+            space["trade_info"] = trade_info
+        return False
+
+    # ========== 处理情报交换子状态 ==========
+    if sub_state == "exchange_wait":
+        # 情报交换等待所有玩家选择卡牌
+        exchange_info = space.get("exchange_info", {})
+        player_selections = exchange_info.get("player_selections", {})
+
+        # 检查是否在等待列表中
+        if idx not in exchange_info.get("waiting_list", []):
+            return True  # 不在等待列表中，不响应
+
+        # 必须在私聊中回应
+        if message.session_type != "private":
+            await app.send_message("⚠️ 请在私聊中选择要交换的牌！")
+            return False
+
+        # 解析玩家选择的手牌
+        player_hand = hands[idx]
+        selected_card = None
+        selected_idx = -1
+        for i, c in enumerate(player_hand):
+            if c.name == content:
+                selected_card = c
+                selected_idx = i
+                break
+
+        if selected_card is None:
+            card_names = [c.name for c in player_hand]
+            await app.send_message(f"❌ 你没有「{content}」这张牌！\n你的手牌：{'、'.join(card_names)}")
+            return False
+
+        # 记录选择
+        player_selections[str(idx)] = {
+            "card": selected_card,
+            "idx": selected_idx
+        }
+        exchange_info["player_selections"] = player_selections
+
+        await app.send_message(f"✅ 你选择了【{selected_card.name}】，等待其他玩家选择...")
+        space["exchange_info"] = exchange_info
+
+        # 检查是否所有玩家都已选择
+        waiting_list = exchange_info.get("waiting_list", [])
+        if len(player_selections) == len(waiting_list):
+            # 所有玩家都选择了，执行交换
+            # 按顺时针顺序交换：每个玩家把牌给上家
+            # 即：玩家 i 的牌给玩家 (i-1)
+            n = len(waiting_list)
+            temp_hands = [list(hands[i]) if i < len(hands) else [] for i in range(len(players))]
+
+            for i, giver_idx in enumerate(waiting_list):
+                receiver_idx = waiting_list[(i - 1 + n) % n]  # 上家（上家收牌）
+                selection = player_selections[str(giver_idx)]
+                given_card = selection["card"]
+                given_idx = selection["idx"]
+                # 从给出者手牌移除
+                temp_hands[giver_idx].pop(given_idx)
+                # 加入接收者手牌
+                temp_hands[receiver_idx].append(given_card)
+
+            # 更新手牌
+            for i in range(len(players)):
+                hands[i] = temp_hands[i]
+            space["hands"] = hands
+
+            # 生成结果消息：每个玩家收到了谁的牌
+            result_parts = []
+            for i, receiver_idx in enumerate(waiting_list):
+                giver_idx = waiting_list[(i + 1) % n]  # 下家（下家给出）
+                given_card = player_selections[str(giver_idx)]["card"]
+                result_parts.append(f"{players[receiver_idx]['name']} 获得了 {players[giver_idx]['name']} 的【{given_card.name}】")
+
+            space["sub_state"] = None
+            space.pop("exchange_info", None)
+
+            await app.send_message(f"🔄 情报交换完成！")
+            await app.send_message("\n".join(result_parts))
+            await _next_turn(space)
+
+        return False
+
+    # ========== 处理神犬子状态 ==========
+    if sub_state == "dog_wait":
+        dog_info = space.get("dog_info", {})
+        target_idx = dog_info.get("target_idx")
+        player_idx = dog_info.get("player_idx")
+
+        # 只有被神犬指定的玩家可以响应
+        if idx != target_idx:
+            return True
+
+        target_hand = hands[target_idx]
+        if not target_hand:
+            space["sub_state"] = None
+            space.pop("dog_info", None)
+            await app.send_message(f"🐕 【{players[target_idx]['name']}】没有手牌可弃！")
+            await _next_turn(space)
+            return False
+
+        # 解析玩家选择的牌
+        selected_card = None
+        selected_idx = -1
+        for i, c in enumerate(target_hand):
+            if c.name == content:
+                selected_card = c
+                selected_idx = i
+                break
+
+        if selected_card is None:
+            card_names = [c.name for c in target_hand]
+            await app.send_message(f"❌ 你没有「{content}」这张牌！\n你的手牌：{'、'.join(card_names)}")
+            return False
+
+        # 执行弃牌
+        discarded = target_hand.pop(selected_idx)
+        space["hands"] = hands
+        space["sub_state"] = None
+        space.pop("dog_info", None)
+        group_session = dog_info.get("group_session", message.session_id)
+
+        if message.session_type == "private":
+            # 私聊弃牌，私聊确认 + 群聊公告
+            await app.send_message(f"✅ 你弃置了【{discarded.name}】")
+            await app.send_message(f"🐕 【{players[target_idx]['name']}】被迫弃置：【{discarded.name}】", session_id=group_session)
+        else:
+            # 群聊直接弃牌
+            await app.send_message(f"🐕 【{players[target_idx]['name']}】弃置了自己的【{discarded.name}】")
+
+        if discarded.name == "犯人":
+            await app.send_message(f"✅ 【{discarded.name}】被弃置！好人阵营获胜！")
+            await _end_game("good", f"神犬嗅出犯人牌！")
+            return
+
+        # 目标获得神犬牌
+        dog_card = dog_info.get("dog_card")
+        if dog_card:
+            target_hand.append(dog_card)
+            space["hands"] = hands
+            card_names = [c.name for c in target_hand]
+            if message.session_type == "private":
+                await app.send_message(f"✅ 你弃置了【{discarded.name}】，获得了【{dog_card.name}】！\n你现在的手牌：{'、'.join(card_names)}")
+                await app.send_message(f"🐕 【{players[target_idx]['name']}】被迫弃置【{discarded.name}】并获得了【{dog_card.name}】", session_id=group_session)
+            else:
+                await app.send_message(f"🐕 【{players[target_idx]['name']}】弃置了【{discarded.name}】并获得了【{dog_card.name}】")
+
+        await _next_turn(space)
+        return False
+
     # 检查是否是当前出牌玩家
     turn_idx = space.get("turn", 0)
     if idx != turn_idx:
         await app.send_message(f"⚠️ 现在是 【{players[turn_idx]['name']}】 的回合，请等待。")
         return False
 
-    # 解析卡牌名和目标（支持 "卡牌 @玩家" 或 "卡牌 玩家" 格式）
+    # 解析卡牌名和目标（支持 "卡牌 @玩家" 或 "卡牌 玩家 牌名" 格式）
     parts = content.split()
     card_name = parts[0]
     target_name = None
@@ -363,6 +589,13 @@ async def handle_game_message(message: Message) -> bool:
 
     # 检查手牌数量限制（必须在 pop 之前检查）
     hand_count = len(hands[idx])
+
+    # 第一发现人必须是全局第一张打出的牌
+    if not space.get("first_card_played", False):
+        if card_name != "第一发现人":
+            await app.send_message("⚠️ 游戏第一张牌必须是「第一发现人」！")
+            return False
+
     if card_name == "犯人" and hand_count > 1:
         await app.send_message(f"❌ 「犯人」只能在手牌≤1时打出！你当前有 {hand_count} 张手牌。")
         return False
@@ -376,30 +609,43 @@ async def handle_game_message(message: Message) -> bool:
     # 需要指定目标但没有提供
     need_target = card_name in ["侦探", "警部", "神犬", "目击者", "交易"]
     if need_target and not target_name:
-        await app.send_message(f"❓ 「{card_name}」需要指定目标玩家！\n用法：{card_name} @玩家名 或 {card_name} 玩家名")
+        if card_name == "交易":
+            await app.send_message(f"❓ 「交易」需要指定目标玩家！\n用法：交易 @玩家名\n例如：交易 玩家2\n（双方私聊各自选择要给出的牌）")
+        else:
+            await app.send_message(f"❓ 「{card_name}」需要指定目标玩家！\n用法：{card_name} @玩家名 或 {card_name} 玩家名")
         return False
 
-    # 解析目标玩家索引
+    # 解析目标玩家索引（支持 user_id 或 user_name）
     target_idx = -1
     if target_name:
+        target_idx = -1
+        matches = []
         for i, p in enumerate(players):
-            if target_name in p["name"] or p["id"] == target_name:
-                target_idx = i
-                break
-        if target_idx < 0:
+            # user_id 精确匹配
+            if p["id"] == target_name:
+                matches.append(i)
+            # user_name 精确匹配
+            elif p["name"] == target_name:
+                matches.append(i)
+
+        if not matches:
             await app.send_message(f"❌ 未找到玩家「{target_name}」！")
             return False
+        if len(matches) > 1:
+            await app.send_message(f"❌ 「{target_name}」匹配到多个玩家，请使用完整名字！")
+            return False
+        target_idx = matches[0]
+
         if target_idx == idx:
             await app.send_message(f"❌ 不能以自己为目标！")
             return False
 
-    # ========== 执行卡牌效果 ==========
-    await _play_card(idx, card_idx, card, space, target_idx)
+    await _play_card(idx, card_idx, card, space, target_idx, message)
 
     return False
 
 
-async def _play_card(player_idx: int, card_idx: int, card: Card, space, target_idx: int = -1):
+async def _play_card(player_idx: int, card_idx: int, card: Card, space, target_idx: int = -1, message=None):
     """执行卡牌效果
 
     Args:
@@ -478,10 +724,7 @@ async def _play_card(player_idx: int, card_idx: int, card: Card, space, target_i
             return
         else:
             await app.send_message(f"🕵️ 【{player['name']}】质疑【{target['name']}】！")
-            if has_criminal and has_alibi:
-                await app.send_message(f"⚠️ 目标有犯人牌但有不在场证明！质疑失败！")
-            else:
-                await app.send_message(f"⚠️ 目标没有犯人牌！质疑失败！")
+            await app.send_message(f"⚠️ 目标不是犯人！质疑失败！")
 
     # ========== 警部 ==========
     elif card_name == "警部":
@@ -498,16 +741,16 @@ async def _play_card(player_idx: int, card_idx: int, card: Card, space, target_i
         if not target_hand:
             await app.send_message(f"🐕 【{target['name']}】没有手牌可弃！")
         else:
-            # 随机弃一张牌
-            discard_idx = random.randint(0, len(target_hand) - 1)
-            discarded = target_hand.pop(discard_idx)
-            await app.send_message(f"🐕 【{player['name']}】的神犬嗅探【{target['name']}】！")
-            await app.send_message(f"🎴 【{target['name']}】被迫弃置：【{discarded.name}】")
-
-            if discarded.name == "犯人":
-                await app.send_message(f"✅ 【{discarded.name}】被弃置！好人阵营获胜！")
-                await _end_game("good", f"神犬嗅出犯人牌！")
-                return
+            # 进入神犬子状态，等待目标玩家选择弃置的牌
+            space["sub_state"] = "dog_wait"
+            space["dog_info"] = {
+                "player_idx": player_idx,
+                "target_idx": target_idx,
+                "group_session": message.session_id,
+                "dog_card": played_card,  # 保存神犬牌，目标可获得
+            }
+            await app.send_message(f"🐕 【{player['name']}】的神犬嗅探【{target['name']}】！请选择弃置的一张手牌（私聊或群聊回复牌名）")
+            return  # 不切换回合，等待目标选择
 
     # ========== 谣言 ==========
     elif card_name == "谣言":
@@ -533,31 +776,43 @@ async def _play_card(player_idx: int, card_idx: int, card: Card, space, target_i
 
     # ========== 情报交换 ==========
     elif card_name == "情报交换":
-        await app.send_message("🔄 情报交换！所有玩家将一张牌传给上家...")
-        exchange_results = []
-        temp_cards = []
-
-        # 先收集每人的第一张牌
+        # 找出所有有手牌的玩家
+        waiting_list = []
         for i in range(len(players)):
             if hands[i]:
-                temp_cards.append(hands[i][0])
+                waiting_list.append(i)
+
+        if len(waiting_list) < 2:
+            await app.send_message("❌ 没有足够的玩家进行情报交换！")
+            return False
+
+        # 进入子状态，等待所有玩家选择
+        space["sub_state"] = "exchange_wait"
+        space["exchange_info"] = {
+            "initiator_idx": player_idx,
+            "waiting_list": waiting_list,
+            "player_selections": {},
+        }
+
+        # 私聊通知每个有手牌的玩家
+        for p_idx in waiting_list:
+            p = players[p_idx]
+            private_session = f"private.{p['id']}"
+            hand = hands[p_idx]
+            hand_str = "、".join([f"【{c.name}】" for c in hand])
+            if p_idx == player_idx:
+                await app.send_message(
+                    f"🔄 你发起了情报交换！\n请选择要给出的牌，发送牌名即可（如：{hand[0].name}）：\n你的手牌：{hand_str}",
+                    session_id=private_session,
+                )
             else:
-                temp_cards.append(None)
+                await app.send_message(
+                    f"🔄 【{player['name']}】发起了情报交换！\n请选择要给出的牌，发送牌名即可（如：{hand[0].name}）：\n你的手牌：{hand_str}",
+                    session_id=private_session,
+                )
 
-        # 然后把上家的牌发下去
-        for i in range(len(players)):
-            prev_idx = (i - 1 + len(players)) % len(players)
-            if hands[i] and temp_cards[prev_idx]:
-                hands[i].pop(0)
-                hands[i].append(temp_cards[prev_idx])
-                if temp_cards[prev_idx]:
-                    exchange_results.append(f"{players[i]['name']} 收到了来自 {players[prev_idx]['name']} 的【{temp_cards[prev_idx].name}】")
-
-        if exchange_results:
-            await app.send_message("\n".join(exchange_results))
-        else:
-            await app.send_message("没有可交换的牌！")
-        space["hands"] = hands
+        await app.send_message(f"🔄 【{player['name']}】发起了情报交换，所有玩家正在选择卡牌...")
+        return False  # 不切换回合，等待所有玩家选择
 
     # ========== 目击者 ==========
     elif card_name == "目击者":
@@ -574,24 +829,43 @@ async def _play_card(player_idx: int, card_idx: int, card: Card, space, target_i
     # ========== 交易 ==========
     elif card_name == "交易":
         target = players[target_idx]
-        player_hand = hands[player_idx]
         target_hand = hands[target_idx]
+        player_hand = hands[player_idx]
 
         if not player_hand:
             await app.send_message(f"❌ 你没有手牌，无法交易！")
         elif not target_hand:
             await app.send_message(f"❌ 对方没有手牌，无法交易！")
         else:
-            # 各给一张对方
-            player_card = player_hand[0]
-            target_card = target_hand[0]
-            player_hand.pop(0)
-            target_hand.pop(0)
-            player_hand.append(target_card)
-            target_hand.append(player_card)
-            await app.send_message(f"🤝 【{player['name']}】与【{target['name']}】交易成功！")
-            await app.send_message(f"🎴 你给出了【{player_card.name}】，获得了【{target_card.name}】")
-            space["hands"] = hands
+            # 进入交易子状态，等待双方玩家选择要给出的牌
+            space["sub_state"] = "trade_wait"
+            space["trade_info"] = {
+                "player_idx": player_idx,
+                "target_idx": target_idx,
+                "initiator_card": None,
+                "target_card": None,
+            }
+            # 私聊通知发起人选择
+            player_private_session = f"private.{player['id']}"
+            player_hand_str = "、".join([f"【{c.name}】" for c in player_hand])
+            await app.send_message(
+                f"🤝 你向【{target['name']}】发起了交易！\n"
+                f"请选择你要给出的牌，发送牌名即可（如：{player_hand[0].name}）：\n"
+                f"你的手牌：{player_hand_str}",
+                session_id=player_private_session,
+            )
+            # 私聊通知目标选择
+            target_private_session = f"private.{target['id']}"
+            target_hand_str = "、".join([f"【{c.name}】" for c in target_hand])
+            await app.send_message(
+                f"🤝 【{player['name']}】向你发起交易！\n"
+                f"请选择你要给出的牌，发送牌名即可（如：{target_hand[0].name}）：\n"
+                f"你的手牌：{target_hand_str}",
+                session_id=target_private_session,
+            )
+            # 群聊只发简单提示
+            await app.send_message(f"🤝 【{player['name']}】向【{target['name']}】发起了交易，双方正在选择卡牌...")
+            return  # 不切换回合，等待双方选择
 
     # ========== 其他人 ==========
     else:
@@ -634,10 +908,15 @@ async def _end_game(winner: str, reason: str):
     # 从所有私聊 session 卸载插件
     app.unmount_from_all()
 
-    # 关闭插件
-    session = app.get_session()
-    if session:
-        await session.deactivate_plugin("criminal_dance", 2)
+    # 关闭群聊 session 中的插件（由 Router 在消息处理结束后执行）
+    # 注意：app.get_space() 对于 mounted 插件返回的是父 session 的 space，
+    # 需要从私聊 session 的 space 中获取 _parent_space_ 来找到 group session
+    session_id = get_session_id()
+    if session_id:
+        private_space = Space(app.name, session_id, memory=True)
+        parent_session_id = private_space.get(f"_parent_space_{app.name}_")
+        if parent_session_id:
+            app.close_self(parent_session_id)
 
 
 app.register()

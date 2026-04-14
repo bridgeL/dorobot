@@ -27,6 +27,8 @@ class MessageRouter:
 
     def __init__(self, dorobot: "Dorobot"):
         self._dorobot = dorobot
+        # 关闭请求记录：{plugin_name: [(target_session_id, layer_id), ...]}
+        self._close_requests: dict[str, list[tuple]] = {}
 
     async def handle_message(self, bot_id: str, message: Message) -> bool:
         """处理 Bot 发来的消息
@@ -59,7 +61,30 @@ class MessageRouter:
             content_preview = message.content[:50] + "..." if len(message.content) > 50 else message.content
             logger.info(f"[Router] Routing message: bot={bot_id}, session_id={session_id}, sender_id={message.sender_id}, sender_name={message.sender_name}, content={content_preview}', ")
             result = await session.handle_message(message)
+
+            # 处理关闭请求
+            await self._process_close_requests()
+
             return result
         finally:
             # 清理上下文（可选，因为contextvars会自动处理）
             pass
+
+    async def _process_close_requests(self):
+        """处理所有待关闭的请求"""
+        if not self._close_requests:
+            return
+
+        for plugin_name, requests in list(self._close_requests.items()):
+            for target_session_id, layer_id in requests:
+                target_session = self._dorobot.session_manager.get_session(target_session_id)
+                if target_session:
+                    layer = target_session.get_layer(layer_id)
+                    if layer and layer.is_plugin_active(plugin_name):
+                        try:
+                            await target_session.deactivate_plugin(plugin_name, layer_id)
+                            logger.debug(f"[Router] Closed plugin {plugin_name} in session {target_session_id}, layer {layer_id}")
+                        except Exception as e:
+                            logger.warning(f"[Router] Failed to close plugin {plugin_name}: {e}")
+
+        self._close_requests.clear()
