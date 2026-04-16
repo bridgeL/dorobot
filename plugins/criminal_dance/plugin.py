@@ -698,7 +698,13 @@ async def _play_card(player_idx: int, card_idx: int, card: Card, space: Space, t
     # ========== 犯人 ==========
     elif card_name == "犯人":
         bad_players = space.get("bad_players", [])
-        if player_idx in bad_players:
+        policing_target = space.get("policiamento_target")
+
+        # 如果被警部监视，犯人打出时好人获胜
+        if policing_target == player_idx:
+            await app.send_message(f"🚨 【{player['name']}】打出了犯人牌！因被警部监视，好人阵营获胜！")
+            await _end_game("good", f"警部监视生效：【{player['name']}】打出犯人牌被抓！")
+        elif player_idx in bad_players:
             await app.send_message(f"🚨 【{player['name']}】打出了犯人牌！坏人阵营获胜！")
             await _end_game("bad", f"【{player['name']}】是犯人，坏人逃脱！")
         else:

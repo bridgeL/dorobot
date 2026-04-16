@@ -94,7 +94,9 @@ class AITestAdapter(Adapter):
         if not ai_test_log.exists():
             return []
         lines = ai_test_log.read_text(encoding="utf-8").splitlines()
-        return lines[start_line:] if start_line < len(lines) else []
+        lines = lines[start_line:] if start_line < len(lines) else []
+        lines = [line.strip() for line in lines]
+        return lines
 
     async def _handle_send(self, request: web.Request) -> web.Response:
         """处理 /send 请求"""
@@ -110,7 +112,9 @@ class AITestAdapter(Adapter):
         content = data.get("content", "")
 
         if not target_id or not content:
-            return web.json_response({"error": "Missing target_id or content"}, status=400)
+            return web.json_response(
+                {"error": "Missing target_id or content"}, status=400
+            )
 
         session_id = f"{session_type}.{target_id}"
 
@@ -127,11 +131,13 @@ class AITestAdapter(Adapter):
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
         logs = self._get_logs_since(self._start_line)
 
-        return web.json_response({
-            "logs": logs,
-            "time": timestamp,
-            "session_id": session_id,
-        })
+        return web.json_response(
+            {
+                "logs": logs,
+                "time": timestamp,
+                "session_id": session_id,
+            }
+        )
 
     async def _handle_logs(self, request: web.Request) -> web.Response:
         """处理 /logs 请求"""
@@ -145,10 +151,12 @@ class AITestAdapter(Adapter):
         lines = ai_test_log.read_text(encoding="utf-8").splitlines()
         recent = lines[-count:] if len(lines) > count else lines
 
-        return web.json_response({
-            "logs": recent,
-            "count": len(recent),
-        })
+        return web.json_response(
+            {
+                "logs": recent,
+                "count": len(recent),
+            }
+        )
 
     async def _handle_health(self, _request: web.Request) -> web.Response:
         """健康检查"""

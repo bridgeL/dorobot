@@ -1,6 +1,6 @@
 """测试命令 - 直接导入 app 注册命令"""
 
-from .plugin import app
+from .plugin import app, _get_players
 from .card import generate_fixed_pool, deal_cards
 
 
@@ -263,16 +263,15 @@ async def cmd_test_detective(message, _):
         await app.send_message("游戏已在进行中，请先结束当前游戏。")
         return False
 
-    # 初始化玩家列表
-    sender_id = message.sender_id
-    players = [{
-        "id": sender_id,
-        "name": message.sender_name,
-    }]
-    players.append({"id": "222", "name": "玩家2"})
-    players.append({"id": "333", "name": "玩家3"})
+    # 使用房间里已有的真实玩家
+    players = _get_players(space)
+    if len(players) < 3:
+        await app.send_message(f"⚠️ 房间人数不足！当前 {len(players)} 人，需要至少 3 人才能开始测试。")
+        await app.send_message("请让至少3名玩家先发送「/加入」加入房间。")
+        return False
 
-    space["players"] = players
+    # 只取前3个玩家用于测试
+    players = players[:3]
 
     # 固定牌池：测试侦探+犯人+不在场证明
     fixed_cards = [
@@ -342,15 +341,15 @@ async def cmd_test_dog(message, _):
         await app.send_message("游戏已在进行中，请先结束当前游戏。")
         return False
 
-    sender_id = message.sender_id
-    players = [{
-        "id": sender_id,
-        "name": message.sender_name,
-    }]
-    players.append({"id": "222", "name": "玩家2"})
-    players.append({"id": "333", "name": "玩家3"})
+    # 使用房间里已有的真实玩家
+    players = _get_players(space)
+    if len(players) < 3:
+        await app.send_message(f"⚠️ 房间人数不足！当前 {len(players)} 人，需要至少 3 人才能开始测试。")
+        await app.send_message("请让至少3名玩家先发送「/加入」加入房间。")
+        return False
 
-    space["players"] = players
+    # 只取前3个玩家用于测试
+    players = players[:3]
 
     # 固定牌池：测试神犬
     fixed_cards = [
@@ -390,6 +389,78 @@ async def cmd_test_dog(message, _):
     await app.send_message(f"🔔 第一回合由 【{players[first_player_idx]['name']}】 开始。")
     await app.send_message("💬 请所有玩家查看私聊消息，获取自己的手牌！")
     await app.send_message("📌 测试神犬：玩家1有【第一发现人】【神犬】【神犬】【普通人】，可对玩家2使用「神犬 玩家2」强制弃牌")
+
+    for player in players:
+        private_session = f"private.{player['id']}"
+        await app.mount_to(private_session)
+
+    return False
+
+
+@app.on_command("测试警部")
+async def cmd_test_police(message, _):
+    """测试用命令：测试警部效果
+
+    固定牌池：
+    - 玩家1: 第一发现人、警部、普通人、普通人
+    - 玩家2: 犯人、神犬、神犬、神犬
+    - 玩家3: 普通人、普通人、普通人、普通人
+    """
+    space = app.get_space()
+    state = space.get("state", "room")
+
+    if state == "game":
+        await app.send_message("游戏已在进行中，请先结束当前游戏。")
+        return False
+
+    # 使用房间里已有的真实玩家
+    players = _get_players(space)
+    if len(players) < 3:
+        await app.send_message(f"⚠️ 房间人数不足！当前 {len(players)} 人，需要至少 3 人才能开始测试。")
+        await app.send_message("请让至少3名玩家先发送「/加入」加入房间。")
+        return False
+
+    # 只取前3个玩家用于测试
+    players = players[:3]
+
+    # 固定牌池：测试警部监视犯人
+    fixed_cards = [
+        # 玩家1：第一发现人 + 警部 + 2个普通人
+        "第一发现人", "警部", "普通人", "普通人",
+        # 玩家2：犯人 + 3个普通人
+        "犯人", "普通人", "普通人", "普通人",
+        # 玩家3：4个普通人
+        "普通人", "普通人", "普通人", "普通人",
+    ]
+    pool = generate_fixed_pool(fixed_cards)
+    hands = deal_cards(pool, 3)
+
+    space["state"] = "game"
+    space["hands"] = hands
+    space["turn"] = 0
+    space["first_card_played"] = False
+
+    first_player_idx = 0
+    for idx, hand in enumerate(hands):
+        card_names = [c.name for c in hand]
+        if "第一发现人" in card_names:
+            first_player_idx = idx
+            break
+    space["turn"] = first_player_idx
+
+    for i, player in enumerate(players):
+        private_session = f"private.{player['id']}"
+        hand = hands[i]
+        hand_str = "\n".join([f"{j+1}. 【{c.name}】" for j, c in enumerate(hand)])
+        await app.send_message(
+            f"🃏 你的手牌：\n{hand_str}",
+            session_id=private_session,
+        )
+
+    await app.send_message(f"🎮 【测试模式】游戏开始！共 3 名玩家参与。")
+    await app.send_message(f"🔔 第一回合由 【{players[first_player_idx]['name']}】 开始。")
+    await app.send_message("💬 请所有玩家查看私聊消息，获取自己的手牌！")
+    await app.send_message("📌 测试警部：玩家1有【第一发现人】【警部】【警部】【普通人】，可对玩家2使用「警部 玩家2」监视\n玩家2有【犯人】，若被监视则打出犯人时好人获胜")
 
     for player in players:
         private_session = f"private.{player['id']}"
