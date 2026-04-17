@@ -39,10 +39,40 @@ def _find_player(players: list[dict], sender_id: str) -> int:
 async def on_open():
     """插件激活时初始化 room 状态"""
     space = app.get_space()
-    space["players"] = []
+    session = app.get_session()
+
+    # 获取开启者信息并自动加入房间
+    opener_name = "未知玩家"
+    if session:
+        # 从 context 获取当前 message 的发送者名称
+        from dorobot.context import get_current_message
+        msg = get_current_message()
+        opener_name = msg.sender_name
+        opener_id = msg.sender_id
+
+        # 自动加入房间
+        players = space.get("players", [])
+        if _find_player(players, opener_id) < 0:
+            players.append({
+                "id": opener_id,
+                "name": opener_name,
+            })
+            space["players"] = players
+
+    space["players"] = space.get("players", [])
     space["state"] = "room"
-    await app.send_message("🎭 【犯人在跳舞】游戏已开启！\n请等待其他玩家加入...")
-    await app.send_message("发送 /加入 加入房间，发送 /房间 查看当前玩家")
+
+    count = len(space["players"])
+    msg = f"🎭 【犯人在跳舞】游戏已开启！\n"
+    if count > 0:
+        msg += f"✅ 房主 {opener_name} 已自动加入房间（{count}/8）\n"
+        if count >= 3:
+            msg += "💡 人数已满足（≥3），可以发送 /开始 开始游戏\n"
+        msg += "请等待其他玩家加入..."
+    else:
+        msg += "请等待其他玩家加入..."
+    msg += "\n发送 /加入 加入房间，发送 /房间 查看当前玩家"
+    await app.send_message(msg)
 
 
 @app.on_close()

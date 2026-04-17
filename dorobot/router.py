@@ -48,6 +48,7 @@ class MessageRouter:
         context.bot_id.set(bot_id)
         context.session_id.set(session_id)
         context.set_dorobot(self._dorobot)
+        context.set_current_message(message)
 
         try:
             # 通过 SessionManager 获取或创建会话
