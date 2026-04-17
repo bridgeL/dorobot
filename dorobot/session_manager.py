@@ -1,8 +1,12 @@
 """会话管理器 - 管理多个会话的创建、获取和销毁"""
-from typing import Optional
+
+from typing import TYPE_CHECKING, Optional
 from loguru import logger
 
 from .session import Session
+
+if TYPE_CHECKING:
+    from .dorobot import Dorobot
 
 
 class SessionManager:
@@ -34,7 +38,13 @@ class SessionManager:
         """
         return self._sessions.get(session_id)
 
-    async def get_or_create_session(self, session_id: str, type: str = "private", group_id: str = "", user_id: str = "") -> Session:
+    async def get_or_create_session(
+        self,
+        session_id: str,
+        type: str = "private",
+        group_id: str = "",
+        user_id: str = "",
+    ) -> Session:
         """获取或创建会话
 
         新会话会自动激活0层、1层和3层的所有插件。
@@ -49,7 +59,9 @@ class SessionManager:
             Session: 会话对象
         """
         if session_id not in self._sessions:
-            self._sessions[session_id] = Session(session_id, type, group_id, user_id, self._dorobot)
+            self._sessions[session_id] = Session(
+                session_id, type, group_id, user_id, self._dorobot
+            )
             logger.debug(f"Created new session: {session_id} ({type})")
         return self._sessions[session_id]
 
@@ -88,7 +100,12 @@ class SessionManager:
 
     # === 跨 session 插件挂载 ===
 
-    async def mount_plugin(self, plugin_name: str, target_session_id: str, parent_session_id: str | None = None) -> bool:
+    async def mount_plugin(
+        self,
+        plugin_name: str,
+        target_session_id: str,
+        parent_session_id: str | None = None,
+    ) -> bool:
         """将插件挂载到目标 session 的 Layer 1（自动创建不存在的 session）
 
         Args:
@@ -100,13 +117,17 @@ class SessionManager:
             bool: 是否挂载成功
         """
         # 获取或创建目标 session
-        target_session = await self.get_or_create_session(target_session_id, type="private")
+        target_session = await self.get_or_create_session(
+            target_session_id, type="private"
+        )
 
         # 在目标 session 的 Layer 1 激活插件
         try:
             layer = target_session.get_layer(1)
             if not layer:
-                logger.warning(f"[SessionManager] mount_plugin: layer 1 not found in session {target_session_id}")
+                logger.warning(
+                    f"[SessionManager] mount_plugin: layer 1 not found in session {target_session_id}"
+                )
                 return False
             layer.activate_plugin(plugin_name, target_session_id, silent=True)
         except Exception as e:
@@ -121,10 +142,13 @@ class SessionManager:
         # 将父 session ID 写入子 session 的 space（让 mounted 插件能访问主 session 数据）
         if parent_session_id:
             from .plugin import Space
+
             child_space = Space(plugin_name, target_session_id, memory=True)
             child_space[f"_parent_space_{plugin_name}_"] = parent_session_id
 
-        logger.debug(f"[SessionManager] Plugin({plugin_name}) mounted to session {target_session_id}")
+        logger.debug(
+            f"[SessionManager] Plugin({plugin_name}) mounted to session {target_session_id}"
+        )
         return True
 
     def unmount_plugin(self, plugin_name: str, target_session_id: str) -> bool:
@@ -155,7 +179,9 @@ class SessionManager:
             if not self._mounts[plugin_name]:
                 del self._mounts[plugin_name]
 
-        logger.debug(f"[SessionManager] Plugin({plugin_name}) unmounted from session {target_session_id}")
+        logger.debug(
+            f"[SessionManager] Plugin({plugin_name}) unmounted from session {target_session_id}"
+        )
         return True
 
     def unmount_plugin_all(self, plugin_name: str):
