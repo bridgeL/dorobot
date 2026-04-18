@@ -62,7 +62,7 @@ class SessionManager:
             self._sessions[session_id] = Session(
                 session_id, type, group_id, user_id, self._dorobot
             )
-            logger.debug(f"Created new session: {session_id} ({type})")
+            logger.debug(f"Created new session: {full_session_id} ({type})")
         return self._sessions[session_id]
 
     def remove_session(self, session_id: str) -> bool:

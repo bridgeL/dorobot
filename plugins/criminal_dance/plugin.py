@@ -39,25 +39,20 @@ def _find_player(players: list[dict], sender_id: str) -> int:
 async def on_open():
     """插件激活时初始化 room 状态"""
     space = app.get_space()
-    session = app.get_session()
+    msg = app.get_message()
 
     # 获取开启者信息并自动加入房间
-    opener_name = "未知玩家"
-    if session:
-        # 从 context 获取当前 message 的发送者名称
-        from dorobot.context import get_current_message
-        msg = get_current_message()
-        opener_name = msg.sender_name
-        opener_id = msg.sender_id
+    opener_name = msg.sender_name
+    opener_id = msg.sender_id
 
-        # 自动加入房间
-        players = space.get("players", [])
-        if _find_player(players, opener_id) < 0:
-            players.append({
-                "id": opener_id,
-                "name": opener_name,
-            })
-            space["players"] = players
+    # 自动加入房间
+    players: list = space.get("players", [])
+    if _find_player(players, opener_id) < 0:
+        players.append({
+            "id": opener_id,
+            "name": opener_name,
+        })
+        space["players"] = players
 
     space["players"] = space.get("players", [])
     space["state"] = "room"
@@ -73,6 +68,19 @@ async def on_open():
         msg += "请等待其他玩家加入..."
     msg += "\n发送 /加入 加入房间，发送 /房间 查看当前玩家"
     await app.send_message(msg)
+
+    # 发送帮助信息
+    help_text = """📋 【房间命令】
+  /加入  - 加入房间
+  /离开  - 离开房间
+  /房间  - 查看当前房间状态
+  /开始  - 开始游戏（需≥3人）
+  /帮助  - 显示完整帮助
+
+📜 【卡牌】第一发现人/普通人/共犯/不在场证明/侦探/警部/神犬/目击者/谣言/情报交换/交易
+
+⚖️ 【胜负】好人抓犯获胜，坏人打出犯人逃脱。污点证人规则详见 /帮助"""
+    await app.send_message(help_text)
 
 
 @app.on_close()
@@ -277,18 +285,29 @@ async def cmd_help(message: Message, args: str) -> bool:
 
 📜 【卡牌说明】
   【第一发现人】必须第一张打出
-  【犯人】手牌≤1时可打出
-  【侦探】手牌≤2时可打出，质疑目标
-  【警部】手牌≤2时可打出，监视目标
-  【神犬】指定目标弃一张牌
-  【不在场证明】被动防质疑
+  【普通人】无效果
   【共犯】打出后加入坏人阵营
+  【不在场证明】被质疑时可防成功
+  【侦探】手牌≤2时可打出，质疑目标（有犯人而无不在场证明则好人获胜）
+  【警部】手牌≤2时可打出，监视目标（目标打出犯人人则好人获胜）
+  【神犬】指定目标弃一张牌（弃犯人选人获胜，否则目标获得神犬）
   【目击者】查看目标手牌
-  【谣言】【情报交换】【交易】
+  【谣言】所有玩家从下家随机抽一张
+  【情报交换】所有玩家将一张牌传上家
+  【交易】与目标玩家互相交换一张手牌
 
 ⚖️ 【胜负规则】
-  好人：抓到此局犯人即获胜
-  坏人：打出犯人并成功逃脱即获胜
+  好人阵营获胜：
+    - 打出「犯人」牌，被「警部」监视时
+    - 打出「犯人」牌，且打牌者是「共犯」（坏人）时
+    - 「侦探」质疑到持有「犯人」（无不在场证明）的玩家时
+    - 「神犬」使目标弃掉「犯人」牌时
+  坏人阵营获胜：
+    - 打出「犯人」牌，无人监视且非共犯时
+
+⚡ 【污点证人】
+  坏人使用「侦探」「神犬」「警部」成功抓到犯人时，
+  坏人可转为污点证人（加入好人阵营），好人阵营获胜。
 """
     await app.send_message(help_text)
     return False

@@ -57,7 +57,7 @@ class ConsoleBot(Bot):
             content=content,
             sender_id=sender_id,
             sender_name=sender_name,
-            session_id=f"console.{session_id}",
+            session_id=f"{session_type}.{session_id}",
             session_type=session_type,
             group_id=group_id,
             user_id=sender_id,
@@ -65,10 +65,10 @@ class ConsoleBot(Bot):
         )
 
     def _parse_input(self, line: str):
-        parts = line.split(maxsplit=2)
-        if len(parts) < 3:
+        parts = line.split(maxsplit=3)
+        if len(parts) < 4:
             return None
-        return parts[0], parts[1], parts[2]
+        return parts[0], parts[1], parts[2], parts[3]
 
     async def _input_loop(self):
         loop = asyncio.get_event_loop()
@@ -81,12 +81,12 @@ class ConsoleBot(Bot):
 
                 parsed = self._parse_input(content)
                 if parsed is None:
-                    logger.warning("格式错误。正确格式: session_id user_id content")
+                    logger.warning("格式错误。正确格式: session_id sender_id sender_name content")
                     continue
 
-                session_id, user_id, message_content = parsed
+                session_id, sender_id, sender_name, message_content = parsed
                 message = self._build_message(
-                    message_content, session_id, user_id, user_id
+                    message_content, session_id, sender_id, sender_name
                 )
                 await self.on_message(message)
 
@@ -101,7 +101,7 @@ class ConsoleBot(Bot):
 
     async def start(self):
         self._running = True
-        logger.info("Console Bot started. Input format: session_id user_id content")
+        logger.info("Console Bot started. Input format: session_id sender_id sender_name content")
         self._input_task = asyncio.create_task(self._input_loop())
         try:
             await self._input_task

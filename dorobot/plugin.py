@@ -306,6 +306,19 @@ class Plugin(ABC):
 
         return space
 
+    def get_message(self) -> Message | None:
+        """获取当前处理的消息
+
+        在 on_open、on_close、on_command、on_message 等回调中可用。
+        不在消息处理上下文中时返回 None。
+
+        Returns:
+            Message: 当前消息对象
+        """
+        from .context import get_current_message
+
+        return get_current_message()
+
     async def send_message(
         self, content: str, session_id: str | None = None, bot_id: str | None = None
     ):

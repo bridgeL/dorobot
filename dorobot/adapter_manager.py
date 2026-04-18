@@ -1,6 +1,10 @@
 import asyncio
+from typing import TYPE_CHECKING
 from loguru import logger
 from .adapter import Adapter
+
+if TYPE_CHECKING:
+    from .dorobot import Dorobot
 
 
 class AdapterManager:

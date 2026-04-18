@@ -2,8 +2,12 @@
 
 定义 Adapter 的标准接口，所有 Adapter 实现必须继承此类。
 """
+
 from abc import ABC, abstractmethod
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
+
+if TYPE_CHECKING:
+    from .dorobot import Dorobot
 
 
 class Adapter(ABC):

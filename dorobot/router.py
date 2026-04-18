@@ -3,10 +3,16 @@
 连接Bot和插件系统，负责消息的分发和路由。
 协调 BotManager 和 SessionManager 的关系。
 """
+
+from typing import TYPE_CHECKING
+
 from loguru import logger
 
 from .message import Message
 from . import context
+
+if TYPE_CHECKING:
+    from .dorobot import Dorobot
 
 
 class MessageRouter:
@@ -59,8 +65,14 @@ class MessageRouter:
                 user_id=message.user_id,
             )
 
-            content_preview = message.content[:50] + "..." if len(message.content) > 50 else message.content
-            logger.info(f"[Router] Routing message: bot={bot_id}, session_id={session_id}, sender_id={message.sender_id}, sender_name={message.sender_name}, content={content_preview}', ")
+            content_preview = (
+                message.content[:50] + "..."
+                if len(message.content) > 50
+                else message.content
+            )
+            logger.info(
+                f"[Router] Routing message: bot={bot_id}, session_id={session_id}, sender_id={message.sender_id}, sender_name={message.sender_name}, content={content_preview}', "
+            )
             result = await session.handle_message(message)
 
             # 处理关闭请求
@@ -78,14 +90,22 @@ class MessageRouter:
 
         for plugin_name, requests in list(self._close_requests.items()):
             for target_session_id, layer_id in requests:
-                target_session = self._dorobot.session_manager.get_session(target_session_id)
+                target_session = self._dorobot.session_manager.get_session(
+                    target_session_id
+                )
                 if target_session:
                     layer = target_session.get_layer(layer_id)
                     if layer and layer.is_plugin_active(plugin_name):
                         try:
-                            await target_session.deactivate_plugin(plugin_name, layer_id)
-                            logger.debug(f"[Router] Closed plugin {plugin_name} in session {target_session_id}, layer {layer_id}")
+                            await target_session.deactivate_plugin(
+                                plugin_name, layer_id
+                            )
+                            logger.debug(
+                                f"[Router] Closed plugin {plugin_name} in session {target_session_id}, layer {layer_id}"
+                            )
                         except Exception as e:
-                            logger.warning(f"[Router] Failed to close plugin {plugin_name}: {e}")
+                            logger.warning(
+                                f"[Router] Failed to close plugin {plugin_name}: {e}"
+                            )
 
         self._close_requests.clear()

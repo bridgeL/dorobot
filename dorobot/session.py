@@ -1,6 +1,6 @@
 """会话 - 单个会话的数据和状态管理"""
 
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 import asyncio
 from loguru import logger
 
@@ -12,6 +12,9 @@ from .layer import (
     layer_prototype,
 )
 from .plugin_manager import plugin_manager
+
+if TYPE_CHECKING:
+    from .dorobot import Dorobot
 
 
 class Session:
@@ -40,7 +43,7 @@ class Session:
         type: str = "private",
         group_id: str = "",
         user_id: str = "",
-        dorobot: "Dorobot" = None,  # type: ignore[name-defined]
+        dorobot: "Dorobot" = None,
     ):
         """
         Args:
@@ -140,19 +143,23 @@ class Session:
 
         for layer in sorted_layers:
             active_plugin_names = layer.get_active_plugins()
+            all_plugin_names = layer.get_all_plugins()
+            inactive_plugin_names = [p for p in all_plugin_names if p not in active_plugin_names]
+
+            logger.debug(
+                f"[Session] Layer {layer.layer_id}: 激活={active_plugin_names}, 未激活={inactive_plugin_names}"
+            )
 
             if not active_plugin_names:
                 continue
-
-            logger.debug(
-                f"[Session] Layer {layer.layer_id}: 激活={active_plugin_names}"
-            )
 
             # 获取插件实例（从全局注册中心）
             active_plugins: list[Plugin] = []
             current_bot_id = context.get_bot_id()
             current_bot = (
-                self._dorobot.bot_manager.get_bot(current_bot_id) if current_bot_id else None
+                self._dorobot.bot_manager.get_bot(current_bot_id)
+                if current_bot_id
+                else None
             )
 
             for name in active_plugin_names:

@@ -130,6 +130,10 @@ class Layer:
         """获取该层所有激活的插件名称"""
         return list(self._active_plugins)
 
+    def get_all_plugins(self) -> list[str]:
+        """获取该层所有插件名称（包括激活和未激活）"""
+        return list(self._active_plugins | self._deactive_plugins)
+
     def is_plugin_active(self, plugin_name: str) -> bool:
         """检查指定插件是否在该层激活"""
         return plugin_name in self._active_plugins

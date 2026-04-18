@@ -8,8 +8,8 @@ from contextvars import ContextVar
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from dorobot.dorobot import Dorobot
-    from dorobot.message import Message
+    from .dorobot import Dorobot
+    from .message import Message
 
 # 当前 Bot ID
 bot_id: ContextVar[str] = ContextVar("bot_id", default="")
